@@ -15,6 +15,39 @@
 
 <body>
 
+  <section class="access-gate" id="access-gate" aria-labelledby="gate-title">
+    <div class="gate-flower flower-one" aria-hidden="true">🌼</div>
+    <div class="gate-flower flower-two" aria-hidden="true">🌷</div>
+    <div class="gate-flower flower-three" aria-hidden="true">🌸</div>
+    <div class="gate-flower flower-four" aria-hidden="true">💮</div>
+
+    <div class="gate-panel">
+      <div class="gate-bouquet" aria-hidden="true">🌷 🌼 🌸</div>
+      <p class="gate-eyebrow">ANGGUN'S LITTLE GARDEN</p>
+      <h1 id="gate-title">aloo sayangg!!</h1>
+      <p class="gate-copy" id="gate-copy">Masuk dulu yuk, taman catatanmu sudah menunggu.</p>
+
+      <form id="gate-form" class="gate-form">
+        <label for="gate-username">Username</label>
+        <input id="gate-username" name="username" type="text" autocomplete="username" placeholder="nama panggilanmu" required />
+
+        <label for="gate-password">Password</label>
+        <input id="gate-password" name="password" type="password" autocomplete="current-password" placeholder="minimal 8 karakter" required />
+
+        <div class="gate-confirm" id="gate-confirm-wrap" hidden>
+          <label for="gate-confirm-password">Ulangi password</label>
+          <input id="gate-confirm-password" name="confirmPassword" type="password" autocomplete="new-password" placeholder="ketik sekali lagi" />
+        </div>
+
+        <p class="gate-error" id="gate-error" role="alert" aria-live="polite"></p>
+        <button class="gate-submit" id="gate-submit" type="submit">Masuk ke taman <span aria-hidden="true">♡</span></button>
+      </form>
+
+      <p class="gate-footnote" id="gate-footnote">akses ini hanya tersimpan di browser dan hp ini.</p>
+      <div class="gate-sprig" aria-hidden="true">✿ ───── ❀ ───── ✿</div>
+    </div>
+  </section>
+
   <!-- ═══════════════════════════════════════════
      SIDEBAR NAVIGASI
 ════════════════════════════════════════════ -->
@@ -66,6 +99,7 @@
         <div class="month-selector">
           <input type="month" id="global-month" onchange="onMonthChange()" />
         </div>
+        <button class="btn-icon gate-logout" id="gate-logout" type="button" onclick="logoutFromApp()" aria-label="Keluar dari aplikasi" title="Keluar">↪</button>
       </div>
     </header>
 

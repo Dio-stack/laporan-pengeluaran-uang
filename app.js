@@ -51,6 +51,124 @@ const CAT_LABEL = {
   lainnya:    'Lainnya',
 };
 
+const ACCESS_KEY = 'dompetku_access';
+const ACCESS_SESSION_KEY = 'dompetku_authenticated';
+
+function getAccessConfig() {
+  try {
+    return JSON.parse(localStorage.getItem(ACCESS_KEY) || 'null');
+  } catch {
+    return null;
+  }
+}
+
+function setGateMode(isSetup) {
+  document.getElementById('gate-copy').textContent = isSetup
+    ? 'Atur username dan password untuk masuk ke taman catatanmu.'
+    : 'Masuk dulu yuk, taman catatanmu sudah menunggu.';
+  document.getElementById('gate-submit').innerHTML = isSetup
+    ? 'Simpan & masuk <span aria-hidden="true">♡</span>'
+    : 'Masuk ke taman <span aria-hidden="true">♡</span>';
+  document.getElementById('gate-confirm-wrap').hidden = !isSetup;
+  document.getElementById('gate-password').autocomplete = isSetup ? 'new-password' : 'current-password';
+  document.getElementById('gate-footnote').textContent = isSetup
+    ? 'Login ini hanya berlaku di browser dan perangkat ini.'
+    : 'Catatanmu menunggu dengan aman di browser ini.';
+  document.getElementById('gate-form').dataset.mode = isSetup ? 'setup' : 'login';
+}
+
+function showAccessGate() {
+  document.getElementById('access-gate').classList.remove('is-hidden');
+  document.getElementById('gate-logout').hidden = true;
+}
+
+function openAppGate() {
+  document.getElementById('access-gate').classList.add('is-hidden');
+  document.getElementById('gate-logout').hidden = false;
+}
+
+function bytesToHex(bytes) {
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function hashGatePassword(password, salt) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const result = await crypto.subtle.deriveBits({
+    name: 'PBKDF2',
+    salt,
+    iterations: 120000,
+    hash: 'SHA-256',
+  }, key, 256);
+  return bytesToHex(new Uint8Array(result));
+}
+
+async function handleGateSubmit(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const username = document.getElementById('gate-username').value.trim();
+  const password = document.getElementById('gate-password').value;
+  const error = document.getElementById('gate-error');
+  error.textContent = '';
+
+  try {
+    if (!crypto.subtle) throw new Error('secure-context');
+
+    if (form.dataset.mode === 'setup') {
+      const confirmation = document.getElementById('gate-confirm-password').value;
+      if (username.length < 3) {
+        error.textContent = 'Username minimal 3 karakter ya.';
+        return;
+      }
+      if (password.length < 8) {
+        error.textContent = 'Password minimal 8 karakter ya.';
+        return;
+      }
+      if (password !== confirmation) {
+        error.textContent = 'Ulangi password-nya belum cocok.';
+        return;
+      }
+
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const verifier = await hashGatePassword(password, salt);
+      localStorage.setItem(ACCESS_KEY, JSON.stringify({
+        username: username.toLowerCase(),
+        salt: bytesToHex(salt),
+        verifier,
+      }));
+      sessionStorage.setItem(ACCESS_SESSION_KEY, 'true');
+      openAppGate();
+      return;
+    }
+
+    const config = getAccessConfig();
+    if (!config || username.toLowerCase() !== config.username) {
+      error.textContent = 'Username atau password belum cocok.';
+      return;
+    }
+
+    const salt = Uint8Array.from(config.salt.match(/.{2}/g), byte => parseInt(byte, 16));
+    const verifier = await hashGatePassword(password, salt);
+    if (verifier !== config.verifier) {
+      error.textContent = 'Username atau password belum cocok.';
+      return;
+    }
+
+    sessionStorage.setItem(ACCESS_SESSION_KEY, 'true');
+    openAppGate();
+  } catch {
+    error.textContent = 'Login perlu dibuka lewat localhost atau HTTPS.';
+  }
+}
+
+function logoutFromApp() {
+  sessionStorage.removeItem(ACCESS_SESSION_KEY);
+  document.getElementById('gate-form').reset();
+  document.getElementById('gate-error').textContent = '';
+  setGateMode(false);
+  showAccessGate();
+}
+
 /* Referensi Chart.js instances */
 let dashChartInstance = null;
 let mainChartInstance = null;
@@ -61,6 +179,16 @@ let catChartInstance  = null;
 ══════════════════════════════════════════ */
 
 document.addEventListener('DOMContentLoaded', () => {
+  const accessConfig = getAccessConfig();
+  const isSetup = !accessConfig;
+  setGateMode(isSetup);
+  document.getElementById('gate-form').addEventListener('submit', handleGateSubmit);
+  if (accessConfig && sessionStorage.getItem(ACCESS_SESSION_KEY) === 'true') {
+    openAppGate();
+  } else {
+    showAccessGate();
+  }
+
   // Set tanggal default form ke hari ini
   document.getElementById('inp-date').value = todayStr();
 
