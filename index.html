@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anggun's Report — Catatan Pengeluaran</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <!-- ═══════════════════════════════════════════
+     SIDEBAR NAVIGASI
+════════════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-name">Anggun's Report</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-section="dashboard">
+        <span class="nav-icon">🌷</span> Dashboard
+      </a>
+      <a href="#" class="nav-item" data-section="transaksi">
+        <span class="nav-icon">💌</span> Transaksi
+      </a>
+      <a href="#" class="nav-item" data-section="grafik">
+        <span class="nav-icon">✨</span> Grafik
+      </a>
+      <a href="#" class="nav-item" data-section="pengaturan">
+        <span class="nav-icon">🎀</span> Pengaturan
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <p class="footer-label">Penyimpanan</p>
+      <div class="storage-bar">
+        <div class="storage-fill" id="storage-fill"></div>
+      </div>
+      <p class="storage-info" id="storage-info">0 transaksi tersimpan</p>
+      <p class="creator-credit">© spider-dio</p>
+    </div>
+  </aside>
+
+  <!-- Overlay untuk mobile -->
+  <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+  <!-- ═══════════════════════════════════════════
+     KONTEN UTAMA
+════════════════════════════════════════════ -->
+  <main class="main-content">
+
+    <!-- Top Bar -->
+    <header class="topbar">
+      <button class="hamburger" id="hamburger" onclick="toggleSidebar()">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="topbar-title" id="page-title">Dashboard</div>
+      <div class="topbar-right">
+        <div class="month-selector">
+          <input type="month" id="global-month" onchange="onMonthChange()" />
+        </div>
+      </div>
+    </header>
+
+    <!-- ═══════════════ SECTION: DASHBOARD ══════════════ -->
+    <section class="section active" id="section-dashboard">
+
+      <!-- Kartu Statistik -->
+      <div class="stats-grid">
+        <div class="stat-card accent">
+          <div class="stat-label">Total Bulan Ini</div>
+          <div class="stat-value" id="stat-total">Rp 0</div>
+          <div class="stat-sub" id="stat-month-label">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Jumlah Transaksi</div>
+          <div class="stat-value" id="stat-count">0</div>
+          <div class="stat-sub">transaksi tercatat</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Rata-rata / Hari</div>
+          <div class="stat-value" id="stat-avg">Rp 0</div>
+          <div class="stat-sub" id="stat-active-days">0 hari aktif</div>
+        </div>
+        <div class="stat-card warn-card" id="limit-card" style="display:none">
+          <div class="stat-label">Batas Pengeluaran</div>
+          <div class="stat-value" id="stat-limit-pct">0%</div>
+          <div class="stat-sub" id="stat-limit-rem">—</div>
+        </div>
+      </div>
+
+      <!-- Mini Chart di Dashboard -->
+      <div class="card chart-card">
+        <div class="card-header">
+          <div class="card-title">Pengeluaran Harian</div>
+          <div class="card-badge" id="dash-chart-label">—</div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="dashChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Transaksi Terbaru -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Transaksi Terbaru</div>
+          <a href="#" class="card-link" onclick="goSection('transaksi')">Lihat semua →</a>
+        </div>
+        <div id="recent-list">
+          <div class="empty-state">Belum ada transaksi</div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ═══════════════ SECTION: TRANSAKSI ══════════════ -->
+    <section class="section" id="section-transaksi">
+
+      <!-- Form Input -->
+      <div class="card form-card">
+        <div class="card-header">
+          <div class="card-title" id="form-title">Tambah Pengeluaran</div>
+          <button class="btn-icon" id="btn-cancel-edit" onclick="cancelEdit()" style="display:none">✕ Batal</button>
+        </div>
+
+        <form id="expense-form" onsubmit="saveEntry(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="inp-date">Tanggal <span class="req">*</span></label>
+              <input type="date" id="inp-date" required />
+              <span class="err-msg" id="err-date"></span>
+            </div>
+            <div class="form-group">
+              <label for="inp-name">duit keluar untuk : <span class="req">*</span></label>
+              <input type="text" id="inp-name" placeholder="contoh: jajan" required />
+              <span class="err-msg" id="err-name"></span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="inp-cat">Kategori <span class="req">*</span></label>
+              <select id="inp-cat" required>
+                <option value="">— Pilih Kategori —</option>
+                <option value="makanan">🍜 Makanan & Minuman</option>
+                <option value="transport">🚗 Transportasi</option>
+                <option value="hiburan">🎮 Hiburan</option>
+                <option value="belanja">🛍️ Belanja</option>
+                <option value="kesehatan">💊 Kesehatan</option>
+                <option value="lainnya">📦 Lainnya</option>
+              </select>
+              <span class="err-msg" id="err-cat"></span>
+            </div>
+            <div class="form-group">
+              <label for="inp-amount">Nominal (Rp) <span class="req">*</span></label>
+              <input type="number" id="inp-amount" placeholder="contoh: 25000" min="1" required />
+              <span class="err-msg" id="err-amount"></span>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary" id="btn-save">
+              <span class="btn-icon-inner">+</span> Simpan Pengeluaran
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Tabel Data -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Riwayat Pengeluaran</div>
+          <div class="card-badge" id="table-count-badge">0 data</div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="expense-table" id="expense-table">
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Nama</th>
+                <th>Kategori</th>
+                <th class="align-right">Nominal</th>
+                <th class="align-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <!-- diisi oleh JS -->
+            </tbody>
+          </table>
+          <div class="empty-state" id="table-empty">Belum ada data pengeluaran untuk bulan ini</div>
+        </div>
+
+        <!-- Total baris tabel -->
+        <div class="table-total" id="table-total-row" style="display:none">
+          <span>Total</span>
+          <span id="table-total-val">Rp 0</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ SECTION: GRAFIK ══════════════ -->
+    <section class="section" id="section-grafik">
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Grafik Pengeluaran Harian</div>
+          <div class="card-badge" id="chart-month-badge">—</div>
+        </div>
+        <div class="chart-wrap chart-wrap-lg">
+          <canvas id="mainChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Pengeluaran per Kategori</div>
+          <div class="card-badge" id="cat-month-badge">—</div>
+        </div>
+        <div class="cat-chart-row">
+          <div class="chart-wrap doughnut-wrap">
+            <canvas id="catChart"></canvas>
+          </div>
+          <div class="cat-legend" id="cat-legend">
+            <div class="empty-state">Belum ada data</div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ═══════════════ SECTION: PENGATURAN ══════════════ -->
+    <section class="section" id="section-pengaturan">
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Batas Pengeluaran Bulanan</div>
+        </div>
+        <div class="setting-row">
+          <div class="form-group" style="max-width:320px">
+            <label for="limit-input">Batas Maksimal (Rp)</label>
+            <input type="number" id="limit-input" placeholder="contoh: 1000000" min="0" />
+          </div>
+          <button class="btn-primary" onclick="saveLimit()">Beri Batas</button>
+        </div>
+        <p class="setting-desc">Jika total pengeluaran bulan ini melebihi batas, notifikasi peringatan akan muncul.</p>
+      </div>
+
+      <div class="card danger-card">
+        <div class="card-header">
+          <div class="card-title">Hapus Semua Data</div>
+        </div>
+        <p class="setting-desc">Tindakan ini akan menghapus <strong>semua</strong> data pengeluaran yang tersimpan.
+          Tidak dapat dibatalkan.</p>
+        <button class="btn-danger" onclick="clearAllData()">Hapus Semua Data</button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════
+     NOTIFIKASI / TOAST
+════════════════════════════════════════════ -->
+  <div class="toast" id="toast">
+    <div class="toast-icon" id="toast-icon">✓</div>
+    <div class="toast-body">
+      <div class="toast-title" id="toast-title">Berhasil</div>
+      <div class="toast-msg" id="toast-msg">Data tersimpan.</div>
+    </div>
+    <button class="toast-close" onclick="closeToast()">✕</button>
+  </div>
+
+  <!-- Modal Popup Ringkasan Bulanan -->
+  <div class="modal-backdrop" id="modal-backdrop" onclick="closeModal()"></div>
+  <div class="modal" id="modal-summary">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-icon" id="modal-icon">📊</div>
+    <h2 class="modal-title" id="modal-title">Ringkasan Bulan Ini</h2>
+    <div class="modal-body" id="modal-body"></div>
+    <button class="btn-primary" style="width:100%;margin-top:1.5rem" onclick="closeModal()">Tutup</button>
+  </div>
+
+  <!-- Tombol FAB Ringkasan -->
+  <button class="fab" onclick="showSummaryModal()" title="Lihat Ringkasan">◎</button>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
