@@ -32,11 +32,17 @@
         <input id="gate-username" name="username" type="text" autocomplete="username" placeholder="nama panggilanmu" required />
 
         <label for="gate-password">Password</label>
-        <input id="gate-password" name="password" type="password" autocomplete="current-password" placeholder="minimal 8 karakter" required />
+        <div class="password-input-wrap">
+          <input id="gate-password" name="password" type="password" autocomplete="current-password" placeholder="masukkan kata sandi" required />
+          <button class="password-toggle" type="button" data-target="gate-password" aria-label="Tampilkan kata sandi" aria-pressed="false">Lihat</button>
+        </div>
 
         <div class="gate-confirm" id="gate-confirm-wrap" hidden>
           <label for="gate-confirm-password">Ulangi password</label>
-          <input id="gate-confirm-password" name="confirmPassword" type="password" autocomplete="new-password" placeholder="ketik sekali lagi" />
+          <div class="password-input-wrap">
+            <input id="gate-confirm-password" name="confirmPassword" type="password" autocomplete="new-password" placeholder="ketik sekali lagi" />
+            <button class="password-toggle" type="button" data-target="gate-confirm-password" aria-label="Tampilkan kata sandi" aria-pressed="false">Lihat</button>
+          </div>
         </div>
 
         <p class="gate-error" id="gate-error" role="alert" aria-live="polite"></p>
@@ -283,6 +289,41 @@
           <button class="btn-primary" onclick="saveLimit()">Beri Batas</button>
         </div>
         <p class="setting-desc">Jika total pengeluaran bulan ini melebihi batas, notifikasi peringatan akan muncul.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Ubah Kata Sandi</div>
+        </div>
+        <form id="change-password-form" class="setting-password-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="current-password">Kata Sandi Saat Ini</label>
+              <div class="password-input-wrap">
+                <input id="current-password" type="password" autocomplete="current-password" required />
+                <button class="password-toggle" type="button" data-target="current-password" aria-label="Tampilkan kata sandi" aria-pressed="false">Lihat</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="new-password">Kata Sandi Baru</label>
+              <div class="password-input-wrap">
+                <input id="new-password" type="password" autocomplete="new-password" required />
+                <button class="password-toggle" type="button" data-target="new-password" aria-label="Tampilkan kata sandi" aria-pressed="false">Lihat</button>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="confirm-new-password">Ulangi Kata Sandi Baru</label>
+              <div class="password-input-wrap">
+                <input id="confirm-new-password" type="password" autocomplete="new-password" required />
+                <button class="password-toggle" type="button" data-target="confirm-new-password" aria-label="Tampilkan kata sandi" aria-pressed="false">Lihat</button>
+              </div>
+            </div>
+          </div>
+          <p class="setting-desc password-change-message" id="password-change-message" role="status" aria-live="polite"></p>
+          <button class="btn-primary" type="submit">Simpan Kata Sandi Baru</button>
+        </form>
       </div>
 
       <div class="card danger-card">

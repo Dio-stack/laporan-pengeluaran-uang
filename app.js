@@ -103,6 +103,20 @@ async function hashGatePassword(password, salt) {
   return bytesToHex(new Uint8Array(result));
 }
 
+async function verifyGatePassword(password, config) {
+  const salt = Uint8Array.from(config.salt.match(/.{2}/g), byte => parseInt(byte, 16));
+  return await hashGatePassword(password, salt) === config.verifier;
+}
+
+function togglePasswordVisibility(button) {
+  const input = document.getElementById(button.dataset.target);
+  const showPassword = input.type === 'password';
+  input.type = showPassword ? 'text' : 'password';
+  button.textContent = showPassword ? 'Sembunyikan' : 'Lihat';
+  button.setAttribute('aria-label', `${showPassword ? 'Sembunyikan' : 'Tampilkan'} kata sandi`);
+  button.setAttribute('aria-pressed', String(showPassword));
+}
+
 async function handleGateSubmit(event) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -118,10 +132,6 @@ async function handleGateSubmit(event) {
       const confirmation = document.getElementById('gate-confirm-password').value;
       if (username.length < 3) {
         error.textContent = 'Username minimal 3 karakter ya.';
-        return;
-      }
-      if (password.length < 8) {
-        error.textContent = 'Password minimal 8 karakter ya.';
         return;
       }
       if (password !== confirmation) {
@@ -147,9 +157,7 @@ async function handleGateSubmit(event) {
       return;
     }
 
-    const salt = Uint8Array.from(config.salt.match(/.{2}/g), byte => parseInt(byte, 16));
-    const verifier = await hashGatePassword(password, salt);
-    if (verifier !== config.verifier) {
+    if (!await verifyGatePassword(password, config)) {
       error.textContent = 'Username atau password belum cocok.';
       return;
     }
@@ -158,6 +166,51 @@ async function handleGateSubmit(event) {
     openAppGate();
   } catch {
     error.textContent = 'Login perlu dibuka lewat localhost atau HTTPS.';
+  }
+}
+
+async function changeGatePassword(event) {
+  event.preventDefault();
+  const message = document.getElementById('password-change-message');
+  const currentPassword = document.getElementById('current-password').value;
+  const newPassword = document.getElementById('new-password').value;
+  const confirmation = document.getElementById('confirm-new-password').value;
+  message.textContent = '';
+
+  try {
+    if (!crypto.subtle) throw new Error('secure-context');
+    const config = getAccessConfig();
+    if (!config || !await verifyGatePassword(currentPassword, config)) {
+      message.textContent = 'Kata sandi saat ini belum cocok.';
+      return;
+    }
+    if (!newPassword) {
+      message.textContent = 'Kata sandi baru tidak boleh kosong.';
+      return;
+    }
+    if (newPassword !== confirmation) {
+      message.textContent = 'Ulangan kata sandi baru belum cocok.';
+      return;
+    }
+
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const verifier = await hashGatePassword(newPassword, salt);
+    localStorage.setItem(ACCESS_KEY, JSON.stringify({
+      username: config.username,
+      salt: bytesToHex(salt),
+      verifier,
+    }));
+    document.getElementById('change-password-form').reset();
+    document.querySelectorAll('#change-password-form .password-toggle').forEach(button => {
+      const input = document.getElementById(button.dataset.target);
+      input.type = 'password';
+      button.textContent = 'Lihat';
+      button.setAttribute('aria-label', 'Tampilkan kata sandi');
+      button.setAttribute('aria-pressed', 'false');
+    });
+    showToast('Kata Sandi Diubah', 'Kata sandi barumu berhasil disimpan.', 'success');
+  } catch {
+    message.textContent = 'Kata sandi hanya dapat diubah lewat localhost atau HTTPS.';
   }
 }
 
@@ -183,6 +236,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const isSetup = !accessConfig;
   setGateMode(isSetup);
   document.getElementById('gate-form').addEventListener('submit', handleGateSubmit);
+  document.getElementById('change-password-form').addEventListener('submit', changeGatePassword);
+  document.querySelectorAll('.password-toggle').forEach(button => {
+    button.addEventListener('click', () => togglePasswordVisibility(button));
+  });
   if (accessConfig && sessionStorage.getItem(ACCESS_SESSION_KEY) === 'true') {
     openAppGate();
   } else {
