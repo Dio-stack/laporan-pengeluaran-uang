@@ -119,6 +119,19 @@ function togglePasswordVisibility(button) {
   button.setAttribute('aria-pressed', String(showPassword));
 }
 
+function clearGatePassword() {
+  const input = document.getElementById('gate-password');
+  const button = document.querySelector('[data-target="gate-password"]');
+  input.value = '';
+  input.type = 'password';
+  input.focus();
+  button.setAttribute('aria-label', 'Tampilkan kata sandi');
+  button.title = 'Tampilkan kata sandi';
+  button.querySelector('.icon-eye').hidden = false;
+  button.querySelector('.icon-eye-off').hidden = true;
+  button.setAttribute('aria-pressed', 'false');
+}
+
 async function handleGateSubmit(event) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -156,11 +169,13 @@ async function handleGateSubmit(event) {
     const config = getAccessConfig();
     if (!config || username.toLowerCase() !== config.username) {
       error.textContent = 'Username atau password belum cocok.';
+      clearGatePassword();
       return;
     }
 
     if (!await verifyGatePassword(password, config)) {
       error.textContent = 'Username atau password belum cocok.';
+      clearGatePassword();
       return;
     }
 
