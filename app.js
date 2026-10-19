@@ -112,8 +112,10 @@ function togglePasswordVisibility(button) {
   const input = document.getElementById(button.dataset.target);
   const showPassword = input.type === 'password';
   input.type = showPassword ? 'text' : 'password';
-  button.textContent = showPassword ? 'Sembunyikan' : 'Lihat';
   button.setAttribute('aria-label', `${showPassword ? 'Sembunyikan' : 'Tampilkan'} kata sandi`);
+  button.title = `${showPassword ? 'Sembunyikan' : 'Tampilkan'} kata sandi`;
+  button.querySelector('.icon-eye-closed').hidden = showPassword;
+  button.querySelector('.icon-eye-open').hidden = !showPassword;
   button.setAttribute('aria-pressed', String(showPassword));
 }
 
@@ -204,8 +206,10 @@ async function changeGatePassword(event) {
     document.querySelectorAll('#change-password-form .password-toggle').forEach(button => {
       const input = document.getElementById(button.dataset.target);
       input.type = 'password';
-      button.textContent = 'Lihat';
       button.setAttribute('aria-label', 'Tampilkan kata sandi');
+      button.title = 'Tampilkan kata sandi';
+      button.querySelector('.icon-eye-closed').hidden = false;
+      button.querySelector('.icon-eye-open').hidden = true;
       button.setAttribute('aria-pressed', 'false');
     });
     showToast('Kata Sandi Diubah', 'Kata sandi barumu berhasil disimpan.', 'success');

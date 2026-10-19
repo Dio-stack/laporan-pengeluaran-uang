@@ -1108,20 +1108,25 @@ body {
   top: 50%;
   right: 10px;
   transform: translateY(-50%);
-  padding: 6px 4px;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  padding: 0;
   border: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--accent2);
   cursor: pointer;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 600;
 }
 
-.password-toggle:hover { color: var(--accent); text-decoration: underline; }
+.password-toggle:hover { background: var(--surface2); color: var(--accent); }
+.password-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.password-toggle svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.password-toggle svg[hidden] { display: none; }
 
 .setting-password-form .password-input-wrap input {
-  padding-right: 100px;
+  padding-right: 54px;
 }
 
 .password-change-message { min-height: 20px; margin: 0 0 10px; }
