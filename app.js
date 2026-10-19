@@ -212,7 +212,13 @@ async function changeGatePassword(event) {
       button.querySelector('.icon-eye-off').hidden = true;
       button.setAttribute('aria-pressed', 'false');
     });
-    showToast('Kata Sandi Diubah', 'Kata sandi barumu berhasil disimpan.', 'success');
+    sessionStorage.removeItem(ACCESS_SESSION_KEY);
+    document.getElementById('gate-form').reset();
+    document.getElementById('gate-username').value = config.username;
+    document.getElementById('gate-error').textContent = '';
+    setGateMode(false);
+    document.getElementById('gate-copy').textContent = 'Kata sandi berhasil diubah. Silakan login kembali.';
+    showAccessGate();
   } catch {
     message.textContent = 'Kata sandi hanya dapat diubah lewat localhost atau HTTPS.';
   }
