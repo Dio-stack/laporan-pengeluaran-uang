@@ -303,11 +303,12 @@
           <div class="card-title">Login Face ID / Passkey</div>
         </div>
         <p class="setting-desc" id="passkey-setting-status">Passkey belum diaktifkan di perangkat ini.</p>
+        <p class="setting-desc passkey-details" id="passkey-setting-details" role="status" aria-live="polite" hidden></p>
         <div class="setting-row">
           <button class="btn-primary" id="passkey-enable" type="button">Aktifkan passkey di perangkat ini</button>
           <button class="btn-danger" id="passkey-remove" type="button" hidden>Hapus passkey</button>
         </div>
-        <p class="setting-desc">Gunakan biometrik atau kunci layar perangkat. Passkey tersimpan di perangkat/browser ini; password tetap tersedia sebagai cadangan. Karena aplikasi masih berjalan tanpa backend, ini prototipe untuk satu browser/perangkat, bukan perlindungan server.</p>
+        <p class="setting-desc">Tekan aktifkan, lalu konfirmasi di jendela perangkat. Website hanya menyimpan kunci passkey, bukan data wajah atau sidik jari. Password tetap bisa digunakan sebagai cadangan.</p>
       </div>
 
       <div class="card">

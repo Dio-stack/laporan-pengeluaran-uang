@@ -114,6 +114,43 @@ function base64UrlToBytes(value) {
   return Uint8Array.from(binary, character => character.charCodeAt(0));
 }
 
+function derEcdsaSignatureToRaw(signature) {
+  const der = new Uint8Array(signature);
+  if (der.length < 8 || der[0] !== 0x30 || der[1] !== der.length - 2
+      || der[2] !== 0x02) {
+    throw new Error('Format tanda tangan passkey tidak dikenali. Coba daftarkan ulang passkey.');
+  }
+
+  const rLength = der[3];
+  const rStart = 4;
+  const sTag = rStart + rLength;
+  if (rLength === 0 || sTag + 2 > der.length || der[sTag] !== 0x02) {
+    throw new Error('Format tanda tangan passkey tidak valid. Coba daftarkan ulang passkey.');
+  }
+  const sLength = der[sTag + 1];
+  const sStart = sTag + 2;
+  if (sLength === 0 || sStart + sLength !== der.length) {
+    throw new Error('Format tanda tangan passkey tidak valid. Coba daftarkan ulang passkey.');
+  }
+
+  const raw = new Uint8Array(64);
+  const copyInteger = (start, length, targetStart) => {
+    let offset = start;
+    let valueLength = length;
+    while (valueLength > 32 && der[offset] === 0) {
+      offset += 1;
+      valueLength -= 1;
+    }
+    if (valueLength > 32) {
+      throw new Error('Tanda tangan passkey tidak valid. Coba daftarkan ulang passkey.');
+    }
+    raw.set(der.subarray(offset, offset + valueLength), targetStart + 32 - valueLength);
+  };
+  copyInteger(rStart, rLength, 0);
+  copyInteger(sStart, sLength, 32);
+  return raw;
+}
+
 function getPasskeySupportError() {
   if (!window.isSecureContext || !crypto.subtle) {
     return 'Passkey hanya bisa digunakan lewat localhost atau HTTPS.';
@@ -204,11 +241,13 @@ async function registerPasskey() {
       publicKey: bytesToBase64Url(new Uint8Array(publicKey)),
       algorithm,
       rpId,
+      createdAt: new Date().toISOString(),
     };
     localStorage.setItem(ACCESS_KEY, JSON.stringify(config));
     updatePasskeySettings();
     setGateMode(false);
-    status.textContent = 'Passkey berhasil diaktifkan di perangkat ini.';
+    status.textContent = 'Passkey tersimpan. Perangkat ini siap dipakai untuk login.';
+    showToast('Passkey tersimpan', 'Passkey perangkat berhasil ditambahkan. Jenis biometrik tetap dikelola oleh perangkat.', 'success');
   } catch (error) {
     status.textContent = error.name === 'NotAllowedError'
       ? 'Pembuatan passkey dibatalkan atau tidak diizinkan.'
@@ -260,6 +299,9 @@ async function loginWithPasskey() {
     }
 
     const algorithm = PASSKEY_ALGORITHMS[String(config.passkey.algorithm)];
+    if (!algorithm) {
+      throw new Error('Algoritma passkey ini tidak didukung. Hapus lalu daftarkan passkey kembali.');
+    }
     const publicKey = await crypto.subtle.importKey(
       'spki',
       base64UrlToBytes(config.passkey.publicKey),
@@ -274,16 +316,22 @@ async function loginWithPasskey() {
     const signedData = new Uint8Array(authenticatorData.length + clientDataHash.length);
     signedData.set(authenticatorData);
     signedData.set(clientDataHash, authenticatorData.length);
+    const signature = algorithm.import.name === 'ECDSA'
+      ? derEcdsaSignatureToRaw(assertion.response.signature)
+      : assertion.response.signature;
     const verified = await crypto.subtle.verify(
       algorithm.verify,
       publicKey,
-      assertion.response.signature,
+      signature,
       signedData,
     );
-    if (!verified) throw new Error('Verifikasi passkey gagal. Silakan gunakan password.');
+    if (!verified) {
+      throw new Error('Passkey perangkat ini tidak cocok dengan data pendaftaran. Pastikan memakai browser dan alamat website yang sama, atau hapus lalu daftarkan ulang passkey.');
+    }
 
     sessionStorage.setItem(ACCESS_SESSION_KEY, 'true');
     openAppGate();
+    showToast('Login berhasil', 'Verifikasi passkey berhasil.', 'success');
   } catch (failure) {
     error.textContent = failure.name === 'NotAllowedError'
       ? 'Passkey dibatalkan atau tidak tersedia. Kamu tetap bisa login dengan password.'
@@ -297,12 +345,21 @@ function updatePasskeySettings() {
   const enableButton = document.getElementById('passkey-enable');
   const removeButton = document.getElementById('passkey-remove');
   const status = document.getElementById('passkey-setting-status');
+  const details = document.getElementById('passkey-setting-details');
   enableButton.hidden = hasPasskey;
   enableButton.disabled = Boolean(supportError);
   removeButton.hidden = !hasPasskey;
   if (supportError) status.textContent = supportError;
   else if (hasPasskey) status.textContent = 'Passkey aktif di perangkat/browser ini.';
   else status.textContent = 'Passkey belum diaktifkan di perangkat ini.';
+  details.hidden = !hasPasskey;
+  if (hasPasskey) {
+    const createdAt = getAccessConfig().passkey.createdAt;
+    const createdDate = createdAt
+      ? new Date(createdAt).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })
+      : 'Tanggal tidak tersedia';
+    details.textContent = `Data passkey: kunci publik tersimpan di browser ini · ditambahkan ${createdDate}. Wajah/sidik jari tidak dapat dibaca atau disimpan oleh website.`;
+  }
 }
 
 function removePasskey() {
@@ -312,6 +369,7 @@ function removePasskey() {
   localStorage.setItem(ACCESS_KEY, JSON.stringify(config));
   updatePasskeySettings();
   setGateMode(false);
+  showToast('Passkey dihapus', 'Data passkey lokal sudah dihapus dari aplikasi ini.', 'success');
 }
 
 async function hashGatePassword(password, salt) {
