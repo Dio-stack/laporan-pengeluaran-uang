@@ -53,6 +53,7 @@
 
         <p class="gate-error" id="gate-error" role="alert" aria-live="polite"></p>
         <button class="gate-submit" id="gate-submit" type="submit">Masuk ke taman <span aria-hidden="true">♡</span></button>
+        <button class="gate-passkey" id="gate-passkey" type="button" hidden>Masuk dengan Face ID / passkey</button>
       </form>
 
       <p class="gate-footnote" id="gate-footnote">akses ini hanya tersimpan di browser dan hp ini.</p>
@@ -295,6 +296,18 @@
           <button class="btn-primary" onclick="saveLimit()">Beri Batas</button>
         </div>
         <p class="setting-desc">Jika total pengeluaran bulan ini melebihi batas, notifikasi peringatan akan muncul.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Login Face ID / Passkey</div>
+        </div>
+        <p class="setting-desc" id="passkey-setting-status">Passkey belum diaktifkan di perangkat ini.</p>
+        <div class="setting-row">
+          <button class="btn-primary" id="passkey-enable" type="button">Aktifkan passkey di perangkat ini</button>
+          <button class="btn-danger" id="passkey-remove" type="button" hidden>Hapus passkey</button>
+        </div>
+        <p class="setting-desc">Gunakan biometrik atau kunci layar perangkat. Passkey tersimpan di perangkat/browser ini; password tetap tersedia sebagai cadangan. Karena aplikasi masih berjalan tanpa backend, ini prototipe untuk satu browser/perangkat, bukan perlindungan server.</p>
       </div>
 
       <div class="card">

@@ -53,6 +53,16 @@ const CAT_LABEL = {
 
 const ACCESS_KEY = 'dompetku_access';
 const ACCESS_SESSION_KEY = 'dompetku_authenticated';
+const PASSKEY_ALGORITHMS = {
+  '-7': {
+    import: { name: 'ECDSA', namedCurve: 'P-256' },
+    verify: { name: 'ECDSA', hash: 'SHA-256' },
+  },
+  '-257': {
+    import: { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    verify: { name: 'RSASSA-PKCS1-v1_5' },
+  },
+};
 
 function getAccessConfig() {
   try {
@@ -75,6 +85,7 @@ function setGateMode(isSetup) {
     ? 'Login ini hanya berlaku di browser dan perangkat ini.'
     : 'Catatanmu menunggu dengan aman di browser ini.';
   document.getElementById('gate-form').dataset.mode = isSetup ? 'setup' : 'login';
+  document.getElementById('gate-passkey').hidden = isSetup || !getAccessConfig()?.passkey;
 }
 
 function showAccessGate() {
@@ -89,6 +100,218 @@ function openAppGate() {
 
 function bytesToHex(bytes) {
   return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function bytesToBase64Url(bytes) {
+  let binary = '';
+  bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function base64UrlToBytes(value) {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+  const binary = atob(base64 + '='.repeat((4 - base64.length % 4) % 4));
+  return Uint8Array.from(binary, character => character.charCodeAt(0));
+}
+
+function getPasskeySupportError() {
+  if (!window.isSecureContext || !crypto.subtle) {
+    return 'Passkey hanya bisa digunakan lewat localhost atau HTTPS.';
+  }
+  if (!location.hostname) {
+    return 'Buka aplikasi lewat localhost atau alamat HTTPS untuk menggunakan passkey.';
+  }
+  if (!window.PublicKeyCredential || !navigator.credentials) {
+    return 'Browser ini belum mendukung passkey. Coba gunakan browser terbaru.';
+  }
+  return '';
+}
+
+function getPasskeyOriginError() {
+  const supportError = getPasskeySupportError();
+  if (supportError) throw new Error(supportError);
+  if (!location.hostname) throw new Error('Buka aplikasi lewat localhost atau alamat HTTPS.');
+  return location.hostname;
+}
+
+async function validatePasskeyClientData(clientDataJSON, challenge, expectedType) {
+  const clientData = JSON.parse(new TextDecoder().decode(clientDataJSON));
+  if (clientData.type !== expectedType
+      || clientData.challenge !== bytesToBase64Url(challenge)
+      || clientData.origin !== location.origin) {
+    throw new Error('Verifikasi passkey gagal. Coba lagi.');
+  }
+  return clientData;
+}
+
+function hasPasskeyUserVerification(authenticatorData) {
+  return authenticatorData.length >= 37
+    && (authenticatorData[32] & 0x05) === 0x05;
+}
+
+async function registerPasskey() {
+  const status = document.getElementById('passkey-setting-status');
+  const button = document.getElementById('passkey-enable');
+  button.disabled = true;
+  status.textContent = 'Menyiapkan passkey...';
+
+  try {
+    const rpId = getPasskeyOriginError();
+    const config = getAccessConfig();
+    if (!config) throw new Error('Atur password terlebih dahulu sebelum menambahkan passkey.');
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const userId = crypto.getRandomValues(new Uint8Array(16));
+    const credential = await navigator.credentials.create({
+      publicKey: {
+        challenge,
+        rp: { id: rpId, name: "Anggun's Report" },
+        user: {
+          id: userId,
+          name: config.username,
+          displayName: config.username,
+        },
+        pubKeyCredParams: [
+          { type: 'public-key', alg: -7 },
+          { type: 'public-key', alg: -257 },
+        ],
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform',
+          residentKey: 'preferred',
+          userVerification: 'required',
+        },
+        timeout: 60000,
+        attestation: 'none',
+      },
+    });
+    if (!credential || typeof credential.response.getPublicKey !== 'function'
+        || typeof credential.response.getAuthenticatorData !== 'function') {
+      throw new Error('Browser ini belum mendukung penyimpanan passkey yang dibutuhkan. Coba browser terbaru.');
+    }
+
+    await validatePasskeyClientData(credential.response.clientDataJSON, challenge, 'webauthn.create');
+    const authenticatorData = new Uint8Array(credential.response.getAuthenticatorData());
+    if (!hasPasskeyUserVerification(authenticatorData)) {
+      throw new Error('Perangkat tidak mengonfirmasi verifikasi biometrik atau kunci layar.');
+    }
+    const publicKey = credential.response.getPublicKey();
+    const algorithm = credential.response.getPublicKeyAlgorithm();
+    if (!publicKey || !PASSKEY_ALGORITHMS[String(algorithm)]) {
+      throw new Error('Jenis kunci passkey ini belum didukung oleh aplikasi.');
+    }
+
+    config.passkey = {
+      credentialId: bytesToBase64Url(new Uint8Array(credential.rawId)),
+      publicKey: bytesToBase64Url(new Uint8Array(publicKey)),
+      algorithm,
+      rpId,
+    };
+    localStorage.setItem(ACCESS_KEY, JSON.stringify(config));
+    updatePasskeySettings();
+    setGateMode(false);
+    status.textContent = 'Passkey berhasil diaktifkan di perangkat ini.';
+  } catch (error) {
+    status.textContent = error.name === 'NotAllowedError'
+      ? 'Pembuatan passkey dibatalkan atau tidak diizinkan.'
+      : error.message || 'Passkey gagal diaktifkan.';
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function loginWithPasskey() {
+  const error = document.getElementById('gate-error');
+  error.textContent = '';
+  try {
+    const rpId = getPasskeyOriginError();
+    const config = getAccessConfig();
+    if (!config?.passkey) throw new Error('Passkey belum diaktifkan. Silakan login dengan password.');
+    if (config.passkey.rpId !== rpId) {
+      throw new Error('Passkey dibuat untuk alamat aplikasi yang berbeda. Gunakan password untuk login.');
+    }
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge,
+        rpId,
+        allowCredentials: [{
+          type: 'public-key',
+          id: base64UrlToBytes(config.passkey.credentialId),
+        }],
+        userVerification: 'required',
+        timeout: 60000,
+      },
+    });
+    if (!assertion) throw new Error('Autentikasi passkey tidak berhasil.');
+
+    await validatePasskeyClientData(assertion.response.clientDataJSON, challenge, 'webauthn.get');
+    const authenticatorData = new Uint8Array(assertion.response.authenticatorData);
+    if (!hasPasskeyUserVerification(authenticatorData)) {
+      throw new Error('Perangkat tidak mengonfirmasi verifikasi biometrik atau kunci layar.');
+    }
+    const expectedRpHash = new Uint8Array(await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(rpId),
+    ));
+    if (!expectedRpHash.every((byte, index) => byte === authenticatorData[index])) {
+      throw new Error('Passkey tidak cocok dengan alamat aplikasi ini.');
+    }
+    if (bytesToBase64Url(new Uint8Array(assertion.rawId)) !== config.passkey.credentialId) {
+      throw new Error('Passkey tidak dikenal. Silakan gunakan password.');
+    }
+
+    const algorithm = PASSKEY_ALGORITHMS[String(config.passkey.algorithm)];
+    const publicKey = await crypto.subtle.importKey(
+      'spki',
+      base64UrlToBytes(config.passkey.publicKey),
+      algorithm.import,
+      false,
+      ['verify'],
+    );
+    const clientDataHash = new Uint8Array(await crypto.subtle.digest(
+      'SHA-256',
+      assertion.response.clientDataJSON,
+    ));
+    const signedData = new Uint8Array(authenticatorData.length + clientDataHash.length);
+    signedData.set(authenticatorData);
+    signedData.set(clientDataHash, authenticatorData.length);
+    const verified = await crypto.subtle.verify(
+      algorithm.verify,
+      publicKey,
+      assertion.response.signature,
+      signedData,
+    );
+    if (!verified) throw new Error('Verifikasi passkey gagal. Silakan gunakan password.');
+
+    sessionStorage.setItem(ACCESS_SESSION_KEY, 'true');
+    openAppGate();
+  } catch (failure) {
+    error.textContent = failure.name === 'NotAllowedError'
+      ? 'Passkey dibatalkan atau tidak tersedia. Kamu tetap bisa login dengan password.'
+      : failure.message || 'Passkey gagal digunakan. Silakan login dengan password.';
+  }
+}
+
+function updatePasskeySettings() {
+  const hasPasskey = Boolean(getAccessConfig()?.passkey);
+  const supportError = getPasskeySupportError();
+  const enableButton = document.getElementById('passkey-enable');
+  const removeButton = document.getElementById('passkey-remove');
+  const status = document.getElementById('passkey-setting-status');
+  enableButton.hidden = hasPasskey;
+  enableButton.disabled = Boolean(supportError);
+  removeButton.hidden = !hasPasskey;
+  if (supportError) status.textContent = supportError;
+  else if (hasPasskey) status.textContent = 'Passkey aktif di perangkat/browser ini.';
+  else status.textContent = 'Passkey belum diaktifkan di perangkat ini.';
+}
+
+function removePasskey() {
+  const config = getAccessConfig();
+  if (!config?.passkey) return;
+  delete config.passkey;
+  localStorage.setItem(ACCESS_KEY, JSON.stringify(config));
+  updatePasskeySettings();
+  setGateMode(false);
 }
 
 async function hashGatePassword(password, salt) {
@@ -213,6 +436,7 @@ async function changeGatePassword(event) {
     const salt = crypto.getRandomValues(new Uint8Array(16));
     const verifier = await hashGatePassword(newPassword, salt);
     localStorage.setItem(ACCESS_KEY, JSON.stringify({
+      ...config,
       username: config.username,
       salt: bytesToHex(salt),
       verifier,
@@ -261,6 +485,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const isSetup = !accessConfig;
   setGateMode(isSetup);
   document.getElementById('gate-form').addEventListener('submit', handleGateSubmit);
+  document.getElementById('gate-passkey').addEventListener('click', loginWithPasskey);
+  document.getElementById('passkey-enable').addEventListener('click', registerPasskey);
+  document.getElementById('passkey-remove').addEventListener('click', removePasskey);
   document.getElementById('change-password-form').addEventListener('submit', changeGatePassword);
   document.querySelectorAll('.password-toggle').forEach(button => {
     button.addEventListener('click', () => togglePasswordVisibility(button));
@@ -270,6 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
   } else {
     showAccessGate();
   }
+  updatePasskeySettings();
 
   // Set tanggal default form ke hari ini
   document.getElementById('inp-date').value = todayStr();
