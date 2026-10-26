@@ -73,19 +73,27 @@ function getAccessConfig() {
 }
 
 function setGateMode(isSetup) {
+  const config = getAccessConfig();
+  const hasPasskey = Boolean(config?.passkey);
   document.getElementById('gate-copy').textContent = isSetup
     ? 'Atur username dan password untuk masuk ke taman catatanmu.'
     : 'Masuk dulu yuk, taman catatanmu sudah menunggu.';
   document.getElementById('gate-submit').innerHTML = isSetup
     ? 'Simpan & masuk <span aria-hidden="true">♡</span>'
     : 'Masuk ke taman <span aria-hidden="true">♡</span>';
+  document.getElementById('gate-submit').hidden = false;
+  document.getElementById('gate-username').disabled = false;
+  document.getElementById('gate-username').required = true;
+  document.getElementById('gate-password').disabled = false;
+  document.getElementById('gate-password').required = true;
   document.getElementById('gate-confirm-wrap').hidden = !isSetup;
+  document.getElementById('gate-confirm-password').disabled = false;
   document.getElementById('gate-password').autocomplete = isSetup ? 'new-password' : 'current-password';
   document.getElementById('gate-footnote').textContent = isSetup
     ? 'Login ini hanya berlaku di browser dan perangkat ini.'
-    : 'Catatanmu menunggu dengan aman di browser ini.';
+    : 'Passkey perangkat juga bisa digunakan jika sudah diaktifkan.';
   document.getElementById('gate-form').dataset.mode = isSetup ? 'setup' : 'login';
-  document.getElementById('gate-passkey').hidden = isSetup || !getAccessConfig()?.passkey;
+  document.getElementById('gate-passkey').hidden = isSetup || !hasPasskey;
 }
 
 function showAccessGate() {

@@ -1187,6 +1187,16 @@ body {
 .gate-passkey:hover { background: #fff; }
 .gate-passkey[hidden] { display: none; }
 
+.gate-passkey-missing {
+  margin: 10px 0 0;
+  color: #9a536f;
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.gate-passkey-missing[hidden] { display: none; }
+
 .gate-footnote {
   margin: 16px 0 12px;
   color: #9a7a8a;
