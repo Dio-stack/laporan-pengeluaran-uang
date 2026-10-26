@@ -54,6 +54,32 @@
         <p class="gate-error" id="gate-error" role="alert" aria-live="polite"></p>
         <button class="gate-submit" id="gate-submit" type="submit">Masuk ke taman <span aria-hidden="true">♡</span></button>
         <button class="gate-passkey" id="gate-passkey" type="button" hidden>Masuk dengan Face ID / passkey</button>
+        <button class="gate-link" id="show-recovery" type="button" hidden>Lupa username atau password?</button>
+      </form>
+
+      <form id="recovery-code-form" class="gate-form recovery-form" hidden>
+        <label for="recovery-code">Kode pemulihan</label>
+        <div class="password-input-wrap">
+          <input id="recovery-code" type="password" autocomplete="off" placeholder="masukkan kode pemulihan" required />
+          <button class="password-toggle" type="button" data-target="recovery-code" aria-label="Tampilkan kode pemulihan" title="Tampilkan kode pemulihan" aria-pressed="false">
+            <svg class="icon-eye" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></svg>
+            <svg class="icon-eye-off" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 10.747 10.747 0 0 1-1.444 2.49" /><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" /><path d="M17.479 17.499a10.748 10.748 0 0 1-15.417-5.151 10.75 10.75 0 0 1 4.446-5.143" /><path d="m2 2 20 20" /></svg>
+          </button>
+        </div>
+        <p class="gate-error" id="recovery-error" role="alert" aria-live="polite"></p>
+        <button class="gate-submit" type="submit">Verifikasi kode</button>
+        <button class="gate-link" id="recovery-back" type="button">Kembali ke login</button>
+      </form>
+
+      <form id="reset-credentials-form" class="gate-form recovery-form" hidden>
+        <label for="recovery-new-username">Username baru</label>
+        <input id="recovery-new-username" type="text" autocomplete="username" placeholder="username baru" minlength="3" required />
+        <label for="recovery-new-password">Password baru</label>
+        <input id="recovery-new-password" type="password" autocomplete="new-password" placeholder="password baru" required />
+        <label for="recovery-confirm-password">Ulangi password baru</label>
+        <input id="recovery-confirm-password" type="password" autocomplete="new-password" placeholder="ulangi password baru" required />
+        <p class="gate-error" id="reset-error" role="alert" aria-live="polite"></p>
+        <button class="gate-submit" type="submit">Simpan username & password baru</button>
       </form>
 
       <p class="gate-footnote" id="gate-footnote">akses ini hanya tersimpan di browser dan hp ini.</p>
@@ -296,6 +322,40 @@
           <button class="btn-primary" onclick="saveLimit()">Beri Batas</button>
         </div>
         <p class="setting-desc">Jika total pengeluaran bulan ini melebihi batas, notifikasi peringatan akan muncul.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Kode Pemulihan Akun</div>
+        </div>
+        <p class="setting-desc" id="recovery-setting-status">Kode pemulihan belum dibuat.</p>
+        <form id="recovery-settings-form" class="setting-password-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="recovery-code-new">Buat kode pemulihan sendiri</label>
+              <div class="password-input-wrap">
+                <input id="recovery-code-new" type="password" autocomplete="new-password" placeholder="masukkan kode pilihanmu" required />
+                <button class="password-toggle" type="button" data-target="recovery-code-new" aria-label="Tampilkan kode pemulihan" title="Tampilkan kode pemulihan" aria-pressed="false">
+                  <svg class="icon-eye" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></svg>
+                  <svg class="icon-eye-off" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 10.747 10.747 0 0 1-1.444 2.49" /><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" /><path d="M17.479 17.499a10.748 10.748 0 0 1-15.417-5.151 10.75 10.75 0 0 1 4.446-5.143" /><path d="m2 2 20 20" /></svg>
+                </button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="recovery-code-confirm">Ulangi kode pemulihan</label>
+              <div class="password-input-wrap">
+                <input id="recovery-code-confirm" type="password" autocomplete="new-password" placeholder="ulangi kode pilihanmu" required />
+                <button class="password-toggle" type="button" data-target="recovery-code-confirm" aria-label="Tampilkan kode pemulihan" title="Tampilkan kode pemulihan" aria-pressed="false">
+                  <svg class="icon-eye" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></svg>
+                  <svg class="icon-eye-off" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 10.747 10.747 0 0 1-1.444 2.49" /><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" /><path d="M17.479 17.499a10.748 10.748 0 0 1-15.417-5.151 10.75 10.75 0 0 1 4.446-5.143" /><path d="m2 2 20 20" /></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <p class="setting-desc">Simpan kode ini di password manager atau tempat aman di luar browser. Kode ini tetap berlaku setelah reset dan bisa digunakan lagi. Website menyimpan hash kode, bukan teks aslinya, jadi kode yang sudah disimpan tidak bisa ditampilkan lagi. Siapa pun yang mengetahui kode ini dapat mengganti username dan password.</p>
+          <p class="setting-desc password-change-message" id="recovery-settings-message" role="status" aria-live="polite"></p>
+          <button class="btn-primary" type="submit">Simpan kode pemulihan</button>
+        </form>
       </div>
 
       <div class="card">

@@ -1073,6 +1073,7 @@ body {
 }
 
 .gate-form { display: flex; flex-direction: column; text-align: left; }
+.gate-form[hidden] { display: none; }
 
 .gate-form label {
   margin: 0 0 6px;
@@ -1187,15 +1188,20 @@ body {
 .gate-passkey:hover { background: #fff; }
 .gate-passkey[hidden] { display: none; }
 
-.gate-passkey-missing {
-  margin: 10px 0 0;
-  color: #9a536f;
+.gate-link {
+  margin-top: 12px;
+  padding: 6px;
+  border: 0;
+  background: transparent;
+  color: #a63b68;
+  cursor: pointer;
+  font: inherit;
   font-size: 12px;
-  line-height: 1.6;
-  text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.gate-passkey-missing[hidden] { display: none; }
+.gate-link[hidden] { display: none; }
 
 .gate-footnote {
   margin: 16px 0 12px;

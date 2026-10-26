@@ -94,6 +94,7 @@ function setGateMode(isSetup) {
     : 'Passkey perangkat juga bisa digunakan jika sudah diaktifkan.';
   document.getElementById('gate-form').dataset.mode = isSetup ? 'setup' : 'login';
   document.getElementById('gate-passkey').hidden = isSetup || !hasPasskey;
+  document.getElementById('show-recovery').hidden = isSetup || !config?.recovery;
 }
 
 function showAccessGate() {
@@ -397,6 +398,147 @@ async function verifyGatePassword(password, config) {
   return await hashGatePassword(password, salt) === config.verifier;
 }
 
+async function verifyRecoveryCode(code, recovery) {
+  const salt = Uint8Array.from(recovery.salt.match(/.{2}/g), byte => parseInt(byte, 16));
+  return await hashGatePassword(code, salt) === recovery.verifier;
+}
+
+async function saveRecoveryCode(event) {
+  event.preventDefault();
+  const message = document.getElementById('recovery-settings-message');
+  const code = document.getElementById('recovery-code-new').value;
+  const confirmation = document.getElementById('recovery-code-confirm').value;
+  message.textContent = '';
+
+  if (!code) {
+    message.textContent = 'Kode pemulihan tidak boleh kosong.';
+    return;
+  }
+  if (code !== confirmation) {
+    message.textContent = 'Ulangan kode pemulihan belum cocok.';
+    return;
+  }
+
+  try {
+    if (!crypto.subtle) throw new Error('secure-context');
+    const config = getAccessConfig();
+    if (!config) throw new Error('Akun belum disiapkan.');
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    config.recovery = {
+      salt: bytesToHex(salt),
+      verifier: await hashGatePassword(code, salt),
+    };
+    localStorage.setItem(ACCESS_KEY, JSON.stringify(config));
+    document.getElementById('recovery-settings-form').reset();
+    updateRecoverySettings();
+    setGateMode(false);
+    message.textContent = 'Kode pemulihan tersimpan. Pastikan kamu sudah menyimpannya di tempat aman.';
+    showToast('Kode pemulihan tersimpan', 'Kode dapat digunakan untuk membuat username dan password baru.', 'success');
+  } catch (error) {
+    message.textContent = error.message === 'secure-context'
+      ? 'Kode pemulihan hanya dapat disimpan lewat localhost atau HTTPS.'
+      : error.message || 'Kode pemulihan gagal disimpan.';
+  }
+}
+
+function updateRecoverySettings() {
+  const status = document.getElementById('recovery-setting-status');
+  status.textContent = getAccessConfig()?.recovery
+    ? 'Kode pemulihan sudah disiapkan. Kamu bisa menggantinya kapan saja.'
+    : 'Kode pemulihan belum dibuat.';
+}
+
+function showRecoveryForm() {
+  document.getElementById('gate-form').hidden = true;
+  document.getElementById('reset-credentials-form').hidden = true;
+  document.getElementById('recovery-code-form').hidden = false;
+  document.getElementById('gate-copy').textContent = 'Masukkan kode pemulihan untuk mengatur username dan password baru.';
+  document.getElementById('recovery-error').textContent = '';
+  document.getElementById('recovery-code-form').reset();
+  document.getElementById('recovery-code').focus();
+}
+
+function showLoginForm() {
+  document.getElementById('recovery-code-form').hidden = true;
+  document.getElementById('reset-credentials-form').hidden = true;
+  document.getElementById('gate-form').hidden = false;
+  document.getElementById('gate-copy').textContent = 'Masuk dulu yuk, taman catatanmu sudah menunggu.';
+  document.getElementById('gate-error').textContent = '';
+  document.getElementById('reset-error').textContent = '';
+}
+
+async function handleRecoveryCodeSubmit(event) {
+  event.preventDefault();
+  const error = document.getElementById('recovery-error');
+  error.textContent = '';
+  try {
+    if (!crypto.subtle) throw new Error('Pemulihan hanya bisa dilakukan lewat localhost atau HTTPS.');
+    const config = getAccessConfig();
+    const code = document.getElementById('recovery-code').value;
+    if (!config?.recovery || !await verifyRecoveryCode(code, config.recovery)) {
+      error.textContent = 'Kode pemulihan tidak cocok.';
+      return;
+    }
+    document.getElementById('recovery-code-form').reset();
+    document.getElementById('recovery-code-form').hidden = true;
+    document.getElementById('reset-credentials-form').hidden = false;
+    document.getElementById('reset-error').textContent = '';
+    document.getElementById('recovery-new-username').focus();
+    document.getElementById('gate-copy').textContent = 'Kode cocok. Buat username dan password baru.';
+  } catch (failure) {
+    error.textContent = failure.message || 'Kode pemulihan gagal diverifikasi.';
+  }
+}
+
+async function handleResetCredentialsSubmit(event) {
+  event.preventDefault();
+  const error = document.getElementById('reset-error');
+  const username = document.getElementById('recovery-new-username').value.trim().toLowerCase();
+  const password = document.getElementById('recovery-new-password').value;
+  const confirmation = document.getElementById('recovery-confirm-password').value;
+  error.textContent = '';
+
+  if (username.length < 3) {
+    error.textContent = 'Username minimal 3 karakter.';
+    return;
+  }
+  if (!password) {
+    error.textContent = 'Password baru tidak boleh kosong.';
+    return;
+  }
+  if (password !== confirmation) {
+    error.textContent = 'Ulangan password baru belum cocok.';
+    return;
+  }
+
+  try {
+    if (!crypto.subtle) throw new Error('Pemulihan hanya bisa dilakukan lewat localhost atau HTTPS.');
+    const config = getAccessConfig();
+    if (!config?.recovery) throw new Error('Kode pemulihan tidak tersedia. Siapkan ulang dari Pengaturan.');
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    config.username = username;
+    config.salt = bytesToHex(salt);
+    config.verifier = await hashGatePassword(password, salt);
+    localStorage.setItem(ACCESS_KEY, JSON.stringify(config));
+    document.getElementById('reset-credentials-form').reset();
+    updateRecoverySettings();
+    sessionStorage.removeItem(ACCESS_SESSION_KEY);
+    setGateMode(false);
+    document.getElementById('recovery-code-form').hidden = true;
+    document.getElementById('reset-credentials-form').hidden = true;
+    document.getElementById('gate-form').hidden = false;
+    document.getElementById('gate-username').value = username;
+    document.getElementById('gate-password').value = '';
+    document.getElementById('gate-error').textContent = '';
+    document.getElementById('gate-copy').textContent = 'Username dan password berhasil diperbarui. Silakan login seperti biasa.';
+    document.getElementById('gate-password').focus();
+    showAccessGate();
+    showToast('Akun diperbarui', 'Silakan login dengan username dan password baru. Kode pemulihan tetap bisa digunakan.', 'success');
+  } catch (failure) {
+    error.textContent = failure.message || 'Username dan password baru gagal disimpan.';
+  }
+}
+
 function togglePasswordVisibility(button) {
   const input = document.getElementById(button.dataset.target);
   const showPassword = input.type === 'password';
@@ -554,6 +696,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('gate-passkey').addEventListener('click', loginWithPasskey);
   document.getElementById('passkey-enable').addEventListener('click', registerPasskey);
   document.getElementById('passkey-remove').addEventListener('click', removePasskey);
+  document.getElementById('show-recovery').addEventListener('click', showRecoveryForm);
+  document.getElementById('recovery-back').addEventListener('click', showLoginForm);
+  document.getElementById('recovery-code-form').addEventListener('submit', handleRecoveryCodeSubmit);
+  document.getElementById('reset-credentials-form').addEventListener('submit', handleResetCredentialsSubmit);
+  document.getElementById('recovery-settings-form').addEventListener('submit', saveRecoveryCode);
   document.getElementById('change-password-form').addEventListener('submit', changeGatePassword);
   document.querySelectorAll('.password-toggle').forEach(button => {
     button.addEventListener('click', () => togglePasswordVisibility(button));
@@ -564,6 +711,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showAccessGate();
   }
   updatePasskeySettings();
+  updateRecoverySettings();
 
   // Set tanggal default form ke hari ini
   document.getElementById('inp-date').value = todayStr();
