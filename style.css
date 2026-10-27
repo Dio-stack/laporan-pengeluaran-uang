@@ -802,6 +802,10 @@ body {
 
 .settings-details .setting-desc { margin-bottom: 14px; }
 
+#change-password-form .form-row {
+  grid-template-columns: 1fr;
+}
+
 .setting-row {
   display: flex;
   align-items: flex-end;
