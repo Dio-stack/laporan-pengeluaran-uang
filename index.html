@@ -313,16 +313,19 @@
       <h2 class="settings-section-title settings-security-title">Akun & keamanan</h2>
 
       <div class="card settings-passkey-card">
-        <div class="card-header">
-          <div class="card-title">Login perangkat (passkey)</div>
-        </div>
-        <p class="setting-desc" id="passkey-setting-status">Belum diaktifkan di perangkat ini.</p>
-        <p class="setting-desc passkey-details" id="passkey-setting-details" role="status" aria-live="polite" hidden></p>
-        <div class="setting-row">
-          <button class="btn-primary" id="passkey-enable" type="button">Aktifkan login perangkat</button>
-          <button class="btn-danger" id="passkey-remove" type="button" hidden>Hapus passkey</button>
-        </div>
-        <p class="setting-desc">Masuk dengan Face ID, sidik jari, PIN, atau metode yang didukung perangkat. Data biometrik tidak dibagikan ke website.</p>
+        <details class="settings-details">
+          <summary>
+            <span>Login perangkat</span>
+            <span class="settings-detail-status" id="passkey-setting-status">Belum terdaftar</span>
+          </summary>
+          <p class="setting-desc">Gunakan Face ID, sidik jari, PIN, atau metode yang didukung perangkat. Data biometrik tidak dibagikan ke website.</p>
+          <p class="setting-desc passkey-details" id="passkey-setting-details" role="status" aria-live="polite" hidden></p>
+          <p class="setting-desc password-change-message" id="passkey-setting-message" role="status" aria-live="polite"></p>
+          <div class="setting-row">
+            <button class="btn-primary" id="passkey-enable" type="button">Daftarkan perangkat</button>
+            <button class="btn-danger" id="passkey-remove" type="button" hidden>Hapus pendaftaran</button>
+          </div>
+        </details>
       </div>
 
       <div class="card settings-recovery-card">

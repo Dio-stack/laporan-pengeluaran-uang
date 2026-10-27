@@ -196,7 +196,7 @@ function hasPasskeyUserVerification(authenticatorData) {
 }
 
 async function registerPasskey() {
-  const status = document.getElementById('passkey-setting-status');
+  const status = document.getElementById('passkey-setting-message');
   const button = document.getElementById('passkey-enable');
   button.disabled = true;
   status.textContent = 'Menyiapkan passkey...';
@@ -255,11 +255,11 @@ async function registerPasskey() {
     localStorage.setItem(ACCESS_KEY, JSON.stringify(config));
     updatePasskeySettings();
     setGateMode(false);
-    status.textContent = 'Passkey tersimpan. Perangkat ini siap dipakai untuk login.';
-    showToast('Passkey tersimpan', 'Passkey perangkat berhasil ditambahkan. Jenis biometrik tetap dikelola oleh perangkat.', 'success');
+    status.textContent = 'Perangkat berhasil terdaftar dan siap digunakan untuk login.';
+    showToast('Perangkat terdaftar', 'Login perangkat berhasil diaktifkan.', 'success');
   } catch (error) {
     status.textContent = error.name === 'NotAllowedError'
-      ? 'Pembuatan passkey dibatalkan atau tidak diizinkan.'
+      ? 'Pendaftaran dibatalkan. Belum ada perangkat yang ditambahkan.'
       : error.message || 'Passkey gagal diaktifkan.';
   } finally {
     button.disabled = false;
@@ -355,19 +355,27 @@ function updatePasskeySettings() {
   const removeButton = document.getElementById('passkey-remove');
   const status = document.getElementById('passkey-setting-status');
   const details = document.getElementById('passkey-setting-details');
+  const message = document.getElementById('passkey-setting-message');
+  const actionRow = enableButton.closest('.setting-row');
   enableButton.hidden = hasPasskey;
   enableButton.disabled = Boolean(supportError);
   removeButton.hidden = !hasPasskey;
-  if (supportError) status.textContent = supportError;
-  else if (hasPasskey) status.textContent = 'Aktif di browser/perangkat ini.';
-  else status.textContent = 'Belum diaktifkan di perangkat ini.';
+  actionRow.classList.toggle('has-passkey', hasPasskey);
+  status.textContent = hasPasskey ? 'Sudah terdaftar' : 'Belum terdaftar';
+  status.dataset.state = hasPasskey ? 'active' : 'inactive';
   details.hidden = !hasPasskey;
+  if (supportError && !hasPasskey) {
+    message.textContent = supportError;
+  }
+  if (!supportError && !hasPasskey && !message.textContent) {
+    message.textContent = 'Belum ada perangkat yang terdaftar. Tekan “Daftarkan perangkat” untuk mulai.';
+  }
   if (hasPasskey) {
     const createdAt = getAccessConfig().passkey.createdAt;
     const createdDate = createdAt
       ? new Date(createdAt).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })
       : 'Tanggal tidak tersedia';
-    details.textContent = `Passkey tersimpan di browser ini sejak ${createdDate}. Data wajah atau sidik jari tidak dibagikan ke website.`;
+    details.textContent = `Perangkat ini terdaftar sejak ${createdDate}. Data wajah atau sidik jari tidak dibagikan ke website.`;
   }
 }
 
@@ -377,8 +385,9 @@ function removePasskey() {
   delete config.passkey;
   localStorage.setItem(ACCESS_KEY, JSON.stringify(config));
   updatePasskeySettings();
+  document.getElementById('passkey-setting-message').textContent = 'Pendaftaran perangkat sudah dihapus.';
   setGateMode(false);
-  showToast('Passkey dihapus', 'Data passkey lokal sudah dihapus dari aplikasi ini.', 'success');
+  showToast('Pendaftaran dihapus', 'Login perangkat sudah dinonaktifkan.', 'success');
 }
 
 async function hashGatePassword(password, salt) {

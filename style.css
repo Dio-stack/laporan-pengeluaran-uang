@@ -797,6 +797,9 @@ body {
   font-weight: 400;
 }
 
+.settings-detail-status[data-state="active"] { color: var(--green); }
+.settings-detail-status[data-state="inactive"] { color: var(--text3); }
+
 .settings-details .setting-desc { margin-bottom: 14px; }
 
 .setting-row {
