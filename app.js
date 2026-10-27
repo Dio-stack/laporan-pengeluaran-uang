@@ -359,15 +359,15 @@ function updatePasskeySettings() {
   enableButton.disabled = Boolean(supportError);
   removeButton.hidden = !hasPasskey;
   if (supportError) status.textContent = supportError;
-  else if (hasPasskey) status.textContent = 'Passkey aktif di perangkat/browser ini.';
-  else status.textContent = 'Passkey belum diaktifkan di perangkat ini.';
+  else if (hasPasskey) status.textContent = 'Aktif di browser/perangkat ini.';
+  else status.textContent = 'Belum diaktifkan di perangkat ini.';
   details.hidden = !hasPasskey;
   if (hasPasskey) {
     const createdAt = getAccessConfig().passkey.createdAt;
     const createdDate = createdAt
       ? new Date(createdAt).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })
       : 'Tanggal tidak tersedia';
-    details.textContent = `Data passkey: kunci publik tersimpan di browser ini · ditambahkan ${createdDate}. Wajah/sidik jari tidak dapat dibaca atau disimpan oleh website.`;
+    details.textContent = `Passkey tersimpan di browser ini sejak ${createdDate}. Data wajah atau sidik jari tidak dibagikan ke website.`;
   }
 }
 
@@ -444,8 +444,8 @@ async function saveRecoveryCode(event) {
 function updateRecoverySettings() {
   const status = document.getElementById('recovery-setting-status');
   status.textContent = getAccessConfig()?.recovery
-    ? 'Kode pemulihan sudah disiapkan. Kamu bisa menggantinya kapan saja.'
-    : 'Kode pemulihan belum dibuat.';
+    ? 'Aktif'
+    : 'Belum dibuat';
 }
 
 function showRecoveryForm() {

@@ -310,29 +310,32 @@
     <!-- ═══════════════ SECTION: PENGATURAN ══════════════ -->
     <section class="section" id="section-pengaturan">
 
-      <div class="card">
+      <h2 class="settings-section-title settings-security-title">Akun & keamanan</h2>
+
+      <div class="card settings-passkey-card">
         <div class="card-header">
-          <div class="card-title">Batas Pengeluaran Bulanan</div>
+          <div class="card-title">Login perangkat (passkey)</div>
         </div>
+        <p class="setting-desc" id="passkey-setting-status">Belum diaktifkan di perangkat ini.</p>
+        <p class="setting-desc passkey-details" id="passkey-setting-details" role="status" aria-live="polite" hidden></p>
         <div class="setting-row">
-          <div class="form-group" style="max-width:320px">
-            <label for="limit-input">Batas Maksimal (Rp)</label>
-            <input type="number" id="limit-input" placeholder="contoh: 1000000" min="0" />
-          </div>
-          <button class="btn-primary" onclick="saveLimit()">Beri Batas</button>
+          <button class="btn-primary" id="passkey-enable" type="button">Aktifkan login perangkat</button>
+          <button class="btn-danger" id="passkey-remove" type="button" hidden>Hapus passkey</button>
         </div>
-        <p class="setting-desc">Jika total pengeluaran bulan ini melebihi batas, notifikasi peringatan akan muncul.</p>
+        <p class="setting-desc">Masuk dengan Face ID, sidik jari, PIN, atau metode yang didukung perangkat. Data biometrik tidak dibagikan ke website.</p>
       </div>
 
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Kode Pemulihan Akun</div>
-        </div>
-        <p class="setting-desc" id="recovery-setting-status">Kode pemulihan belum dibuat.</p>
-        <form id="recovery-settings-form" class="setting-password-form">
-          <div class="form-row">
+      <div class="card settings-recovery-card">
+        <details class="settings-details">
+          <summary>
+            <span>Atur kode pemulihan</span>
+            <span class="settings-detail-status" id="recovery-setting-status">Belum dibuat</span>
+          </summary>
+          <p class="setting-desc">Buat kode untuk memulihkan akun jika lupa username atau password. Simpan di tempat aman; kode yang tersimpan tidak bisa ditampilkan lagi.</p>
+          <form id="recovery-settings-form" class="setting-password-form">
+            <div class="form-row">
             <div class="form-group">
-              <label for="recovery-code-new">Buat kode pemulihan sendiri</label>
+              <label for="recovery-code-new">Kode baru</label>
               <div class="password-input-wrap">
                 <input id="recovery-code-new" type="password" autocomplete="new-password" placeholder="masukkan kode pilihanmu" required />
                 <button class="password-toggle" type="button" data-target="recovery-code-new" aria-label="Tampilkan kode pemulihan" title="Tampilkan kode pemulihan" aria-pressed="false">
@@ -342,7 +345,7 @@
               </div>
             </div>
             <div class="form-group">
-              <label for="recovery-code-confirm">Ulangi kode pemulihan</label>
+              <label for="recovery-code-confirm">Ulangi kode</label>
               <div class="password-input-wrap">
                 <input id="recovery-code-confirm" type="password" autocomplete="new-password" placeholder="ulangi kode pilihanmu" required />
                 <button class="password-toggle" type="button" data-target="recovery-code-confirm" aria-label="Tampilkan kode pemulihan" title="Tampilkan kode pemulihan" aria-pressed="false">
@@ -351,31 +354,17 @@
                 </button>
               </div>
             </div>
-          </div>
-          <p class="setting-desc">ingat ingat kode ini untuk memulihkan username dan password yang lupa, bisa di cek terlebih dahulu agar tidak lupa atau salah dalam memberikan kode pemulihan.</p>
-          <p class="setting-desc password-change-message" id="recovery-settings-message" role="status" aria-live="polite"></p>
-          <button class="btn-primary" type="submit">Simpan kode pemulihan</button>
-        </form>
+            </div>
+            <p class="setting-desc password-change-message" id="recovery-settings-message" role="status" aria-live="polite"></p>
+            <button class="btn-primary" type="submit">Simpan kode</button>
+          </form>
+        </details>
       </div>
 
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Login Passkey</div>
-        </div>
-        <p class="setting-desc" id="passkey-setting-status">Shortcut login belum ditambahkan di perangkat ini.</p>
-        <p class="setting-desc passkey-details" id="passkey-setting-details" role="status" aria-live="polite" hidden></p>
-        <div class="setting-row">
-          <button class="btn-primary" id="passkey-enable" type="button">Aktifkan shortcut login</button>
-          <button class="btn-danger" id="passkey-remove" type="button" hidden>Hapus passkey</button>
-        </div>
-        <p class="setting-desc">Tekan aktifkan shortcut login untuk mendaftarkan password hp kamu agar login lebih mudah. Website hanya menyimpan kunci passkey, bukan data face id.</p>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">Ubah Kata Sandi</div>
-        </div>
-        <form id="change-password-form" class="setting-password-form">
+      <div class="card settings-password-card">
+        <details class="settings-details">
+          <summary><span>Ubah kata sandi</span><span class="settings-detail-status">Perlu kata sandi saat ini</span></summary>
+          <form id="change-password-form" class="setting-password-form">
           <div class="form-row">
             <div class="form-group">
               <label for="current-password">Kata Sandi Saat Ini</label>
@@ -411,17 +400,32 @@
             </div>
           </div>
           <p class="setting-desc password-change-message" id="password-change-message" role="status" aria-live="polite"></p>
-          <button class="btn-primary" type="submit">Simpan Kata Sandi Baru</button>
-        </form>
+          <button class="btn-primary" type="submit">Simpan password</button>
+          </form>
+        </details>
       </div>
 
-      <div class="card danger-card">
-        <div class="card-header">
-          <div class="card-title">Hapus Semua Data</div>
+      <h2 class="settings-section-title settings-budget-title">Batas pengeluaran</h2>
+
+      <div class="card settings-budget-card">
+        <div class="setting-row">
+          <div class="form-group" style="max-width:320px">
+            <label for="limit-input">Batas bulanan (Rp)</label>
+            <input type="number" id="limit-input" placeholder="contoh: 1000000" min="0" />
+          </div>
+          <button class="btn-primary" onclick="saveLimit()">Simpan batas</button>
         </div>
-        <p class="setting-desc">Tindakan ini akan menghapus <strong>semua</strong> data pengeluaran yang tersimpan.
-          Tidak dapat dibatalkan.</p>
-        <button class="btn-danger" onclick="clearAllData()">Hapus Semua Data</button>
+        <p class="setting-desc">Aplikasi memberi peringatan jika pengeluaran melewati batas.</p>
+      </div>
+
+      <h2 class="settings-section-title settings-data-title">Data</h2>
+
+      <div class="card danger-card settings-data-card">
+        <div class="card-header">
+          <div class="card-title">Hapus semua transaksi</div>
+        </div>
+        <p class="setting-desc">Tindakan ini tidak dapat dibatalkan.</p>
+        <button class="btn-danger" onclick="clearAllData()">Hapus semua data</button>
       </div>
 
     </section>
