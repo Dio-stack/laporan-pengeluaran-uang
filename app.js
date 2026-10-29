@@ -9,10 +9,14 @@
    STATE & KONFIGURASI
 ══════════════════════════════════════════ */
 
-// Data utama diambil dari localStorage
-let entries = JSON.parse(localStorage.getItem('dompetku_entries') || '[]');
-let limit   = parseFloat(localStorage.getItem('dompetku_limit') || '0');
-let editId  = null; // ID data yang sedang di-edit
+// Data aplikasi dimuat dari Supabase setelah login berhasil.
+// localStorage tetap dipakai sebagai fallback dan sumber migrasi sekali jalan.
+let entries = [];
+let limit = 0;
+let editId = null; // ID data yang sedang di-edit
+let supabaseClient = null;
+let currentOwner = null;
+let isLoadingData = false;
 
 // Bulan aktif berdasarkan filter global (default: bulan ini)
 let activeMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
@@ -105,6 +109,7 @@ function showAccessGate() {
 function openAppGate() {
   document.getElementById('access-gate').classList.add('is-hidden');
   document.getElementById('gate-logout').hidden = false;
+  loadSupabaseData();
 }
 
 function bytesToHex(bytes) {
@@ -729,6 +734,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('global-month').value = activeMonth;
   initMonthPicker();
 
+  if (!initSupabase()) {
+    entries = JSON.parse(localStorage.getItem('dompetku_entries') || '[]');
+    limit = parseFloat(localStorage.getItem('dompetku_limit') || '0');
+  }
+
   // Isi limit jika ada
   if (limit > 0) document.getElementById('limit-input').value = limit;
 
@@ -758,7 +768,109 @@ function getFiltered() {
   return entries.filter(e => e.date.slice(0, 7) === activeMonth);
 }
 
-/** Simpan semua entries ke localStorage */
+function isSupabaseConfigured() {
+  return Boolean(window.supabase
+    && window.SUPABASE_URL
+    && window.SUPABASE_ANON_KEY
+    && !window.SUPABASE_URL.includes('YOUR_PROJECT_REF')
+    && !window.SUPABASE_ANON_KEY.includes('YOUR_SUPABASE_ANON_KEY'));
+}
+
+function getCurrentOwner() {
+  const config = getAccessConfig();
+  return config?.username || null;
+}
+
+function initSupabase() {
+  if (!isSupabaseConfigured() || supabaseClient) return Boolean(supabaseClient);
+  supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+  return true;
+}
+
+function mapExpense(row) {
+  return {
+    id: row.id,
+    date: row.expense_date,
+    name: row.name,
+    cat: row.category,
+    amount: Number(row.amount),
+  };
+}
+
+async function loadSupabaseData() {
+  if (isLoadingData || !initSupabase()) return;
+  if (sessionStorage.getItem(ACCESS_SESSION_KEY) !== 'true') return;
+
+  currentOwner = getCurrentOwner();
+  if (!currentOwner) return;
+  isLoadingData = true;
+
+  try {
+    await migrateLocalEntries();
+    const { data, error } = await supabaseClient
+      .from('expenses')
+      .select('id, expense_date, name, category, amount')
+      .eq('owner_key', currentOwner)
+      .order('expense_date', { ascending: false });
+    if (error) throw error;
+    entries = (data || []).map(mapExpense);
+    await loadLimit();
+    renderAll();
+  } catch (error) {
+    console.error(error);
+    entries = JSON.parse(localStorage.getItem('dompetku_entries') || '[]');
+    limit = parseFloat(localStorage.getItem('dompetku_limit') || '0');
+    renderAll();
+    showToast('Database belum terhubung', error.message || 'Data ditampilkan dari penyimpanan browser.', 'warn');
+  } finally {
+    isLoadingData = false;
+  }
+}
+
+async function migrateLocalEntries() {
+  const migrationKey = `dompetku_migrated_${currentOwner}`;
+  if (localStorage.getItem(migrationKey) === 'true') return;
+  const localEntries = JSON.parse(localStorage.getItem('dompetku_entries') || '[]');
+  if (localEntries.length > 0) {
+    const rows = localEntries.map(entry => ({
+      owner_key: currentOwner,
+      expense_date: entry.date,
+      name: entry.name,
+      category: entry.cat,
+      amount: Number(entry.amount),
+    }));
+    const { error } = await supabaseClient.from('expenses').insert(rows);
+    if (error) throw error;
+  }
+
+  const localLimit = parseFloat(localStorage.getItem('dompetku_limit') || '0');
+  if (localLimit > 0) {
+    const { error } = await supabaseClient.from('expense_limits').upsert({
+      owner_key: currentOwner,
+      month_key: activeMonth,
+      amount: localLimit,
+    }, { onConflict: 'owner_key,month_key' });
+    if (error) throw error;
+  }
+
+  localStorage.setItem(migrationKey, 'true');
+  localStorage.removeItem('dompetku_entries');
+  localStorage.removeItem('dompetku_limit');
+}
+
+async function loadLimit() {
+  const { data, error } = await supabaseClient
+    .from('expense_limits')
+    .select('amount')
+    .eq('owner_key', currentOwner)
+    .eq('month_key', activeMonth)
+    .maybeSingle();
+  if (error) throw error;
+  limit = Number(data?.amount || 0);
+  document.getElementById('limit-input').value = limit > 0 ? limit : '';
+}
+
+/** Fallback lokal lama; dipakai hanya saat Supabase belum dikonfigurasi. */
 function saveToStorage() {
   localStorage.setItem('dompetku_entries', JSON.stringify(entries));
 }
@@ -826,9 +938,10 @@ function closeSidebar() {
    FILTER BULAN GLOBAL
 ══════════════════════════════════════════ */
 
-function onMonthChange() {
+async function onMonthChange() {
   const val = document.getElementById('global-month').value;
   if (val) activeMonth = val;
+  if (supabaseClient && currentOwner) await loadLimit();
   renderAll();
 }
 
@@ -861,11 +974,12 @@ function initMonthPicker() {
       if (monthValue === hiddenInput.value) {
         monthButton.setAttribute('aria-current', 'true');
       }
-      monthButton.addEventListener('click', () => {
+      monthButton.addEventListener('click', async () => {
         hiddenInput.value = monthValue;
         activeMonth = monthValue;
         label.textContent = monthLabel(monthValue);
         setPickerOpen(false);
+        if (supabaseClient && currentOwner) await loadLimit();
         renderAll();
       });
       grid.appendChild(monthButton);
@@ -881,13 +995,14 @@ function initMonthPicker() {
     pickerYear++;
     renderPicker();
   });
-  document.getElementById('month-picker-today').addEventListener('click', () => {
+  document.getElementById('month-picker-today').addEventListener('click', async () => {
     const currentMonth = new Date().toISOString().slice(0, 7);
     hiddenInput.value = currentMonth;
     activeMonth = currentMonth;
     pickerYear = parseInt(currentMonth.slice(0, 4), 10);
     label.textContent = monthLabel(currentMonth);
     setPickerOpen(false);
+    if (supabaseClient && currentOwner) await loadLimit();
     renderAll();
   });
 
@@ -914,7 +1029,7 @@ function initMonthPicker() {
  * Menyimpan entri baru atau memperbarui entri yang sedang di-edit.
  * Dipanggil saat form disubmit.
  */
-function saveEntry(e) {
+async function saveEntry(e) {
   e.preventDefault();
 
   // Ambil nilai input
@@ -944,30 +1059,46 @@ function saveEntry(e) {
 
   if (!valid) return;
 
-  if (editId !== null) {
-    // MODE EDIT — perbarui entri yang ada
-    const idx = entries.findIndex(en => en.id === editId);
-    if (idx > -1) {
-      entries[idx] = { id: editId, date, name, cat, amount };
+  try {
+    if (supabaseClient && currentOwner) {
+      if (editId !== null) {
+        const { error } = await supabaseClient
+          .from('expenses')
+          .update({ expense_date: date, name, category: cat, amount })
+          .eq('id', editId)
+          .eq('owner_key', currentOwner);
+        if (error) throw error;
+      } else {
+        const { error } = await supabaseClient.from('expenses').insert({
+          owner_key: currentOwner,
+          expense_date: date,
+          name,
+          category: cat,
+          amount,
+        });
+        if (error) throw error;
+      }
+      await loadSupabaseData(true);
+    } else {
+      if (editId !== null) {
+        const idx = entries.findIndex(en => en.id === editId);
+        if (idx > -1) entries[idx] = { id: editId, date, name, cat, amount };
+      } else {
+        entries.unshift({ id: Date.now(), date, name, cat, amount });
+      }
+      saveToStorage();
     }
-    editId = null;
-    document.getElementById('form-title').textContent = 'Tambah Pengeluaran';
-    document.getElementById('btn-cancel-edit').style.display = 'none';
-    document.getElementById('btn-save').innerHTML = '<span class="btn-icon-inner">+</span> Simpan Pengeluaran';
-    showToast('Data diperbarui', `"${name}" berhasil diperbarui.`, 'success');
-  } else {
-    // MODE TAMBAH — buat entri baru
-    const newEntry = {
-      id: Date.now(),       // ID unik berbasis timestamp
-      date, name, cat,
-      amount
-    };
-    entries.unshift(newEntry); // Tambah ke depan array
-    showToast('Tersimpan', `"${name}" berhasil ditambahkan.`, 'success');
+  } catch (error) {
+    showToast('Gagal menyimpan', error.message || 'Data belum berhasil disimpan.', 'error');
+    return;
   }
 
-  // Simpan ke localStorage
-  saveToStorage();
+  const wasEditing = editId !== null;
+  editId = null;
+  document.getElementById('form-title').textContent = 'Tambah Pengeluaran';
+  document.getElementById('btn-cancel-edit').style.display = 'none';
+  document.getElementById('btn-save').innerHTML = '<span class="btn-icon-inner">+</span> Simpan Pengeluaran';
+  showToast(wasEditing ? 'Data diperbarui' : 'Tersimpan', `"${name}" berhasil ${wasEditing ? 'diperbarui' : 'ditambahkan'}.`, 'success');
 
   // Reset form
   resetForm();
@@ -981,7 +1112,7 @@ function saveEntry(e) {
 
 /** Edit entri — isi ulang form dengan data entri */
 function editEntry(id) {
-  const entry = entries.find(e => e.id === id);
+  const entry = entries.find(e => String(e.id) === String(id));
   if (!entry) return;
 
   editId = id;
@@ -1002,15 +1133,28 @@ function editEntry(id) {
 }
 
 /** Hapus satu entri */
-function deleteEntry(id) {
-  const entry = entries.find(e => e.id === id);
+async function deleteEntry(id) {
+  const entry = entries.find(e => String(e.id) === String(id));
   if (!entry) return;
 
   if (!confirm(`Hapus "${entry.name}"? Tindakan ini tidak dapat dibatalkan.`)) return;
 
-  entries = entries.filter(e => e.id !== id);
-  saveToStorage();
-  renderAll();
+  if (supabaseClient && currentOwner) {
+    const { error } = await supabaseClient
+      .from('expenses')
+      .delete()
+      .eq('id', id)
+      .eq('owner_key', currentOwner);
+    if (error) {
+      showToast('Gagal menghapus', error.message, 'error');
+      return;
+    }
+    await loadSupabaseData(true);
+  } else {
+    entries = entries.filter(e => String(e.id) !== String(id));
+    saveToStorage();
+    renderAll();
+  }
   showToast('Dihapus', `"${entry.name}" berhasil dihapus.`, 'error');
 }
 
@@ -1455,14 +1599,26 @@ function closeModal() {
    BATAS PENGELUARAN
 ══════════════════════════════════════════ */
 
-function saveLimit() {
+async function saveLimit() {
   const val = parseFloat(document.getElementById('limit-input').value);
   if (!val || val <= 0) {
     showToast('Gagal', 'Masukkan angka positif untuk batas pengeluaran.', 'error');
     return;
   }
   limit = val;
-  localStorage.setItem('dompetku_limit', limit);
+  if (supabaseClient && currentOwner) {
+    const { error } = await supabaseClient.from('expense_limits').upsert({
+      owner_key: currentOwner,
+      month_key: activeMonth,
+      amount: val,
+    }, { onConflict: 'owner_key,month_key' });
+    if (error) {
+      showToast('Gagal menyimpan', error.message, 'error');
+      return;
+    }
+  } else {
+    localStorage.setItem('dompetku_limit', limit);
+  }
   renderAll();
   showToast('Batas Ditetapkan', 'Batas pengeluaran bulanan: ' + fmt(limit), 'success');
   checkLimit();
@@ -1487,11 +1643,23 @@ function checkLimit() {
    HAPUS SEMUA DATA
 ══════════════════════════════════════════ */
 
-function clearAllData() {
+async function clearAllData() {
   if (!confirm('PERINGATAN: Semua data pengeluaran akan dihapus permanen. Lanjutkan?')) return;
-  entries = [];
-  saveToStorage();
-  renderAll();
+  if (supabaseClient && currentOwner) {
+    const { error } = await supabaseClient
+      .from('expenses')
+      .delete()
+      .eq('owner_key', currentOwner);
+    if (error) {
+      showToast('Gagal menghapus', error.message, 'error');
+      return;
+    }
+    await loadSupabaseData(true);
+  } else {
+    entries = [];
+    saveToStorage();
+    renderAll();
+  }
   showToast('Semua Data Dihapus', 'Seluruh data pengeluaran telah dihapus.', 'error');
 }
 
