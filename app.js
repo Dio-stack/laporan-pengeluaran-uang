@@ -18,6 +18,8 @@ let supabaseClient = null;
 let currentOwner = null;
 let isLoadingData = false;
 let authRequestInProgress = false;
+let authCooldownTimer = null;
+const AUTH_COOLDOWN_KEY = 'dompetku_auth_cooldown_until';
 
 // Bulan aktif berdasarkan filter global (default: bulan ini)
 let activeMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
@@ -581,6 +583,15 @@ function clearGatePassword() {
 async function handleGateSubmit(event) {
   event.preventDefault();
   if (authRequestInProgress) return;
+
+  const cooldownUntil = Number(localStorage.getItem(AUTH_COOLDOWN_KEY) || 0);
+  const remainingSeconds = Math.ceil((cooldownUntil - Date.now()) / 1000);
+  if (remainingSeconds > 0) {
+    document.getElementById('gate-error').textContent =
+      `Terlalu banyak percobaan. Coba lagi sekitar ${remainingSeconds} detik lagi.`;
+    return;
+  }
+
   authRequestInProgress = true;
 
   const form = event.currentTarget;
@@ -650,7 +661,8 @@ async function handleGateSubmit(event) {
       if (signUpResult.error) {
         const message = String(signUpResult.error.message).toLowerCase();
         if (signUpResult.error.status === 429 || message.includes('rate limit') || message.includes('too many requests')) {
-          throw new Error('Terlalu banyak percobaan signup. Tunggu sekitar 60 detik lalu coba sekali lagi.');
+          localStorage.setItem(AUTH_COOLDOWN_KEY, String(Date.now() + 60000));
+          throw new Error('Terlalu banyak percobaan signup. Tunggu 60 detik lalu coba sekali lagi.');
         }
         if (message.includes('already registered') || message.includes('already exists')) {
           throw new Error('Username ini sudah terdaftar. Gunakan password akun yang benar; jangan membuat akun baru.');
@@ -667,7 +679,8 @@ async function handleGateSubmit(event) {
     if (authResult.error || !authResult.data.session) {
       const loginMessage = String(authResult.error?.message || '').toLowerCase();
       if (authResult.error?.status === 429 || loginMessage.includes('too many requests')) {
-        throw new Error('Terlalu banyak percobaan login. Tunggu sekitar 60 detik lalu coba lagi.');
+        localStorage.setItem(AUTH_COOLDOWN_KEY, String(Date.now() + 60000));
+        throw new Error('Terlalu banyak percobaan login. Tunggu 60 detik lalu coba lagi.');
       }
       throw new Error('Username atau password belum cocok, atau akun belum terdaftar. Jika sudah terdaftar, jangan tekan Buat Akun berulang kali.');
     }
@@ -681,7 +694,34 @@ async function handleGateSubmit(event) {
   } finally {
     authRequestInProgress = false;
     submitButton.disabled = false;
+    updateAuthCooldownButton();
   }
+}
+
+function updateAuthCooldownButton() {
+  const submitButton = document.getElementById('gate-submit');
+  if (!submitButton) return;
+  const cooldownUntil = Number(localStorage.getItem(AUTH_COOLDOWN_KEY) || 0);
+  const remainingSeconds = Math.ceil((cooldownUntil - Date.now()) / 1000);
+
+  if (remainingSeconds <= 0) {
+    if (authCooldownTimer) clearInterval(authCooldownTimer);
+    authCooldownTimer = null;
+    submitButton.disabled = false;
+    submitButton.dataset.authBlocked = 'false';
+    const isSetup = document.getElementById('gate-form').dataset.mode === 'setup';
+    submitButton.innerHTML = isSetup
+      ? 'Simpan & masuk <span aria-hidden="true">♡</span>'
+      : 'Masuk ke taman <span aria-hidden="true">♡</span>';
+    return;
+  }
+
+  submitButton.disabled = true;
+  submitButton.dataset.authBlocked = 'true';
+  document.getElementById('gate-error').textContent =
+    `Terlalu banyak percobaan. Coba lagi sekitar ${remainingSeconds} detik lagi.`;
+  if (authCooldownTimer) return;
+  authCooldownTimer = setInterval(updateAuthCooldownButton, 1000);
 }
 
 async function changeGatePassword(event) {
@@ -782,6 +822,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const accessConfig = getAccessConfig();
   const isSetup = !accessConfig;
   setGateMode(isSetup);
+  updateAuthCooldownButton();
   document.getElementById('gate-form').addEventListener('submit', handleGateSubmit);
   document.getElementById('gate-passkey').addEventListener('click', loginWithPasskey);
   document.getElementById('passkey-enable').addEventListener('click', registerPasskey);
