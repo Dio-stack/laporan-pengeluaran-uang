@@ -82,6 +82,7 @@ function getAccessConfig() {
 function setGateMode(isSetup) {
   const config = getAccessConfig();
   const hasPasskey = Boolean(config?.passkey);
+  const modeSwitch = document.getElementById('auth-mode-switch');
   document.getElementById('gate-copy').textContent = isSetup
     ? 'Atur username dan password untuk masuk ke taman catatanmu.'
     : 'Masuk dulu yuk, taman catatanmu sudah menunggu.';
@@ -102,6 +103,19 @@ function setGateMode(isSetup) {
   document.getElementById('gate-form').dataset.mode = isSetup ? 'setup' : 'login';
   document.getElementById('gate-passkey').hidden = isSetup || !hasPasskey;
   document.getElementById('show-recovery').hidden = isSetup || !config?.recovery;
+  if (modeSwitch) {
+    modeSwitch.textContent = isSetup
+      ? 'Sudah punya akun? Masuk di sini'
+      : 'Belum punya akun? Daftar di sini';
+  }
+}
+
+function switchAuthMode() {
+  const form = document.getElementById('gate-form');
+  const isSetup = form.dataset.mode === 'setup';
+  form.reset();
+  document.getElementById('gate-error').textContent = '';
+  setGateMode(!isSetup);
 }
 
 function showAccessGate() {
@@ -828,10 +842,10 @@ let catChartInstance  = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   const accessConfig = getAccessConfig();
-  const isSetup = !accessConfig;
-  setGateMode(isSetup);
+  setGateMode(false);
   updateAuthCooldownButton();
   document.getElementById('gate-form').addEventListener('submit', handleGateSubmit);
+  document.getElementById('auth-mode-switch').addEventListener('click', switchAuthMode);
   document.getElementById('gate-passkey').addEventListener('click', loginWithPasskey);
   document.getElementById('passkey-enable').addEventListener('click', registerPasskey);
   document.getElementById('passkey-remove').addEventListener('click', removePasskey);
