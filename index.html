@@ -135,8 +135,22 @@
       </button>
       <div class="topbar-title" id="page-title">Dashboard</div>
       <div class="topbar-right">
-        <div class="month-selector">
-          <input type="month" id="global-month" onchange="onMonthChange()" />
+        <div class="month-selector" id="month-selector">
+          <input type="hidden" id="global-month" value="" />
+          <button class="month-picker-button" id="month-picker-button" type="button" aria-haspopup="dialog" aria-expanded="false">
+            <span class="month-picker-icon" aria-hidden="true">♡</span>
+            <span id="month-picker-label">Pilih bulan</span>
+            <span class="month-picker-arrow" aria-hidden="true">⌄</span>
+          </button>
+          <div class="month-picker-popover" id="month-picker-popover" role="dialog" aria-label="Pilih bulan" hidden>
+            <div class="month-picker-header">
+              <button class="month-year-nav" id="month-year-prev" type="button" aria-label="Tahun sebelumnya">‹</button>
+              <strong id="month-picker-year"></strong>
+              <button class="month-year-nav" id="month-year-next" type="button" aria-label="Tahun berikutnya">›</button>
+            </div>
+            <div class="month-picker-grid" id="month-picker-grid"></div>
+            <button class="month-picker-today" id="month-picker-today" type="button">Bulan ini ♡</button>
+          </div>
         </div>
         <button class="btn-icon gate-logout" id="gate-logout" type="button" onclick="logoutFromApp()" aria-label="Keluar dari aplikasi" title="Keluar">↪</button>
       </div>

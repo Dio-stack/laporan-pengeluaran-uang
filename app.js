@@ -727,6 +727,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Set filter bulan global ke bulan ini
   document.getElementById('global-month').value = activeMonth;
+  initMonthPicker();
 
   // Isi limit jika ada
   if (limit > 0) document.getElementById('limit-input').value = limit;
@@ -832,6 +833,80 @@ function onMonthChange() {
   const val = document.getElementById('global-month').value;
   if (val) activeMonth = val;
   renderAll();
+}
+
+function initMonthPicker() {
+  const selector = document.getElementById('month-selector');
+  const button = document.getElementById('month-picker-button');
+  const label = document.getElementById('month-picker-label');
+  const popover = document.getElementById('month-picker-popover');
+  const yearLabel = document.getElementById('month-picker-year');
+  const grid = document.getElementById('month-picker-grid');
+  const hiddenInput = document.getElementById('global-month');
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+  let pickerYear = parseInt(activeMonth.slice(0, 4), 10);
+
+  const setPickerOpen = (open) => {
+    popover.hidden = !open;
+    button.setAttribute('aria-expanded', String(open));
+    if (open) renderPicker();
+  };
+
+  const renderPicker = () => {
+    yearLabel.textContent = pickerYear;
+    grid.replaceChildren();
+    monthNames.forEach((name, index) => {
+      const monthButton = document.createElement('button');
+      const monthValue = `${pickerYear}-${String(index + 1).padStart(2, '0')}`;
+      monthButton.type = 'button';
+      monthButton.textContent = name;
+      monthButton.classList.toggle('selected', monthValue === hiddenInput.value);
+      if (monthValue === hiddenInput.value) {
+        monthButton.setAttribute('aria-current', 'true');
+      }
+      monthButton.addEventListener('click', () => {
+        hiddenInput.value = monthValue;
+        activeMonth = monthValue;
+        label.textContent = monthLabel(monthValue);
+        setPickerOpen(false);
+        renderAll();
+      });
+      grid.appendChild(monthButton);
+    });
+  };
+
+  button.addEventListener('click', () => setPickerOpen(popover.hidden));
+  document.getElementById('month-year-prev').addEventListener('click', () => {
+    pickerYear--;
+    renderPicker();
+  });
+  document.getElementById('month-year-next').addEventListener('click', () => {
+    pickerYear++;
+    renderPicker();
+  });
+  document.getElementById('month-picker-today').addEventListener('click', () => {
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    hiddenInput.value = currentMonth;
+    activeMonth = currentMonth;
+    pickerYear = parseInt(currentMonth.slice(0, 4), 10);
+    label.textContent = monthLabel(currentMonth);
+    setPickerOpen(false);
+    renderAll();
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!selector.contains(event.target)) setPickerOpen(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !popover.hidden) {
+      setPickerOpen(false);
+      button.focus();
+    }
+  });
+
+  hiddenInput.value = activeMonth;
+  label.textContent = monthLabel(activeMonth);
+  renderPicker();
 }
 
 /* ══════════════════════════════════════════
