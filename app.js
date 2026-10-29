@@ -778,9 +778,6 @@ function daysInMonth(ym) {
   return new Date(y, m, 0).getDate();
 }
 
-/* ══════════════════════════════════════════
-   NAVIGASI SECTION
-══════════════════════════════════════════ */
 
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', e => {
