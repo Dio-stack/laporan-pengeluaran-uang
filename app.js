@@ -617,31 +617,39 @@ async function handleGateSubmit(event) {
 
     const normalizedUsername = username.toLowerCase();
     const email = `${normalizedUsername}@dompetku.app`;
-    let authResult = await supabaseClient.auth.signInWithPassword({ email, password });
+    let authResult;
 
-    if (authResult.error && form.dataset.mode !== 'setup') {
-      const legacyConfig = getAccessConfig();
-      const isLegacyAccount = legacyConfig
-        && legacyConfig.username === normalizedUsername
-        && await verifyGatePassword(password, legacyConfig);
+    if (form.dataset.mode !== 'setup') {
+      authResult = await supabaseClient.auth.signInWithPassword({ email, password });
 
-      if (isLegacyAccount) {
-        const migrationResult = await supabaseClient.auth.signUp({
-          email,
-          password,
-          options: { data: { username: normalizedUsername } },
-        });
-        if (migrationResult.error) throw migrationResult.error;
-        if (!migrationResult.data.session) {
-          throw new Error('Konfirmasi email aktif. Matikan Email Confirmation agar akun lama dapat dipindahkan.');
+      if (authResult.error) {
+        const legacyConfig = getAccessConfig();
+        const isLegacyAccount = legacyConfig
+          && legacyConfig.username === normalizedUsername
+          && await verifyGatePassword(password, legacyConfig);
+
+        if (isLegacyAccount) {
+          authResult = await supabaseClient.auth.signUp({
+            email,
+            password,
+            options: { data: { username: normalizedUsername } },
+          });
+          if (authResult.error) {
+            const migrationMessage = String(authResult.error.message || '').toLowerCase();
+            if (authResult.error.status === 429 || migrationMessage.includes('too many requests')) {
+              localStorage.setItem(AUTH_COOLDOWN_KEY, String(Date.now() + 60000));
+              throw new Error('Terlalu banyak percobaan signup. Tunggu 60 detik lalu coba sekali lagi.');
+            }
+            throw authResult.error;
+          }
+          if (!authResult.data.session) {
+            throw new Error('Konfirmasi email aktif. Matikan Email Confirmation agar akun lama dapat dipindahkan.');
+          }
         }
-        authResult = migrationResult;
       }
     }
 
-    // Device/browser baru belum memiliki konfigurasi akun lokal, jadi cobalah login
-    // terlebih dahulu. Jika akun memang belum ada, buat akun pada mode setup.
-    if (authResult.error && form.dataset.mode === 'setup') {
+    if (form.dataset.mode === 'setup') {
       const confirmation = document.getElementById('gate-confirm-password').value;
       if (password !== confirmation) {
         error.textContent = 'Ulangi password-nya belum cocok.';
