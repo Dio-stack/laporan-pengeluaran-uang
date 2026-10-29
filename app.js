@@ -655,6 +655,11 @@ async function handleGateSubmit(event) {
         error.textContent = 'Ulangi password-nya belum cocok.';
         return;
       }
+      if (password.length < 6) {
+        error.textContent = 'Password minimal 6 karakter untuk akun Supabase.';
+        return;
+      }
+
       const signUpResult = await supabaseClient.auth.signUp({
         email,
         password,
@@ -748,8 +753,8 @@ async function changeGatePassword(event) {
       message.textContent = 'Kata sandi saat ini belum cocok.';
       return;
     }
-    if (!newPassword) {
-      message.textContent = 'Password baru tidak boleh kosong.';
+    if (newPassword.length < 6) {
+      message.textContent = 'Password baru minimal 6 karakter.';
       return;
     }
     if (newPassword !== confirmation) {
