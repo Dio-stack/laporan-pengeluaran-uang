@@ -586,48 +586,51 @@ async function handleGateSubmit(event) {
   error.textContent = '';
 
   try {
-    if (!crypto.subtle) throw new Error('secure-context');
+    if (!initSupabase()) {
+      throw new Error('Konfigurasi Supabase belum diisi.');
+    }
+    if (username.length < 3) {
+      error.textContent = 'Username minimal 3 karakter ya.';
+      return;
+    }
+    if (!password) {
+      error.textContent = 'Password wajib diisi.';
+      return;
+    }
 
-    if (form.dataset.mode === 'setup') {
+    const normalizedUsername = username.toLowerCase();
+    const email = `${normalizedUsername}@dompetku.local`;
+    let authResult = await supabaseClient.auth.signInWithPassword({ email, password });
+
+    if (authResult.error && form.dataset.mode === 'setup') {
       const confirmation = document.getElementById('gate-confirm-password').value;
-      if (username.length < 3) {
-        error.textContent = 'Username minimal 3 karakter ya.';
-        return;
-      }
       if (password !== confirmation) {
         error.textContent = 'Ulangi password-nya belum cocok.';
         return;
       }
-
-      const salt = crypto.getRandomValues(new Uint8Array(16));
-      const verifier = await hashGatePassword(password, salt);
-      localStorage.setItem(ACCESS_KEY, JSON.stringify({
-        username: username.toLowerCase(),
-        salt: bytesToHex(salt),
-        verifier,
-      }));
-      sessionStorage.setItem(ACCESS_SESSION_KEY, 'true');
-      openAppGate();
-      return;
+      const signUpResult = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: { data: { username: normalizedUsername } },
+      });
+      if (signUpResult.error && !String(signUpResult.error.message).toLowerCase().includes('already registered')) {
+        throw signUpResult.error;
+      }
+      authResult = signUpResult.error
+        ? await supabaseClient.auth.signInWithPassword({ email, password })
+        : signUpResult;
     }
 
-    const config = getAccessConfig();
-    if (!config || username.toLowerCase() !== config.username) {
-      error.textContent = 'Username atau password belum cocok.';
-      clearGatePassword();
-      return;
+    if (authResult.error || !authResult.data.session) {
+      throw new Error('Username atau password belum cocok.');
     }
 
-    if (!await verifyGatePassword(password, config)) {
-      error.textContent = 'Username atau password belum cocok.';
-      clearGatePassword();
-      return;
-    }
-
+    localStorage.setItem(ACCESS_KEY, JSON.stringify({ username: normalizedUsername }));
     sessionStorage.setItem(ACCESS_SESSION_KEY, 'true');
-    openAppGate();
-  } catch {
-    error.textContent = 'Login perlu dibuka lewat localhost atau HTTPS.';
+    await completeAuthLogin();
+  } catch (failure) {
+    error.textContent = failure.message || 'Login gagal. Coba lagi.';
+    clearGatePassword();
   }
 }
 
@@ -685,12 +688,20 @@ async function changeGatePassword(event) {
   }
 }
 
-function logoutFromApp() {
+async function logoutFromApp() {
+  if (supabaseClient) await supabaseClient.auth.signOut();
   sessionStorage.removeItem(ACCESS_SESSION_KEY);
   document.getElementById('gate-form').reset();
   document.getElementById('gate-error').textContent = '';
   setGateMode(false);
   showAccessGate();
+}
+
+async function completeAuthLogin() {
+  const { data } = await supabaseClient.auth.getSession();
+  if (!data.session?.user) throw new Error('Sesi login tidak berhasil dibuat.');
+  currentOwner = data.session.user.id;
+  openAppGate();
 }
 
 /* Referensi Chart.js instances */
@@ -702,7 +713,7 @@ let catChartInstance  = null;
    INISIALISASI
 ══════════════════════════════════════════ */
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const accessConfig = getAccessConfig();
   const isSetup = !accessConfig;
   setGateMode(isSetup);
@@ -719,7 +730,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.password-toggle').forEach(button => {
     button.addEventListener('click', () => togglePasswordVisibility(button));
   });
-  if (accessConfig && sessionStorage.getItem(ACCESS_SESSION_KEY) === 'true') {
+  if (initSupabase()) {
+    const { data } = await supabaseClient.auth.getSession();
+    if (data.session?.user) {
+      currentOwner = data.session.user.id;
+      openAppGate();
+    } else {
+      showAccessGate();
+    }
+  } else if (accessConfig && sessionStorage.getItem(ACCESS_SESSION_KEY) === 'true') {
     openAppGate();
   } else {
     showAccessGate();
@@ -777,8 +796,7 @@ function isSupabaseConfigured() {
 }
 
 function getCurrentOwner() {
-  const config = getAccessConfig();
-  return config?.username || null;
+  return supabaseClient?.auth?.getUser ? currentOwner : null;
 }
 
 function initSupabase() {
@@ -799,9 +817,10 @@ function mapExpense(row) {
 
 async function loadSupabaseData() {
   if (isLoadingData || !initSupabase()) return;
-  if (sessionStorage.getItem(ACCESS_SESSION_KEY) !== 'true') return;
 
-  currentOwner = getCurrentOwner();
+  const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+  if (userError) throw userError;
+  currentOwner = userData.user?.id || null;
   if (!currentOwner) return;
   isLoadingData = true;
 
@@ -810,7 +829,7 @@ async function loadSupabaseData() {
     const { data, error } = await supabaseClient
       .from('expenses')
       .select('id, expense_date, name, category, amount')
-      .eq('owner_key', currentOwner)
+      .eq('owner_id', currentOwner)
       .order('expense_date', { ascending: false });
     if (error) throw error;
     entries = (data || []).map(mapExpense);
@@ -834,6 +853,7 @@ async function migrateLocalEntries() {
   if (localEntries.length > 0) {
     const rows = localEntries.map(entry => ({
       owner_key: currentOwner,
+      owner_id: currentOwner,
       expense_date: entry.date,
       name: entry.name,
       category: entry.cat,
@@ -847,6 +867,7 @@ async function migrateLocalEntries() {
   if (localLimit > 0) {
     const { error } = await supabaseClient.from('expense_limits').upsert({
       owner_key: currentOwner,
+      owner_id: currentOwner,
       month_key: activeMonth,
       amount: localLimit,
     }, { onConflict: 'owner_key,month_key' });
@@ -862,7 +883,7 @@ async function loadLimit() {
   const { data, error } = await supabaseClient
     .from('expense_limits')
     .select('amount')
-    .eq('owner_key', currentOwner)
+    .eq('owner_id', currentOwner)
     .eq('month_key', activeMonth)
     .maybeSingle();
   if (error) throw error;
@@ -1066,11 +1087,12 @@ async function saveEntry(e) {
           .from('expenses')
           .update({ expense_date: date, name, category: cat, amount })
           .eq('id', editId)
-          .eq('owner_key', currentOwner);
+          .eq('owner_id', currentOwner);
         if (error) throw error;
       } else {
         const { error } = await supabaseClient.from('expenses').insert({
           owner_key: currentOwner,
+          owner_id: currentOwner,
           expense_date: date,
           name,
           category: cat,
@@ -1144,7 +1166,7 @@ async function deleteEntry(id) {
       .from('expenses')
       .delete()
       .eq('id', id)
-      .eq('owner_key', currentOwner);
+      .eq('owner_id', currentOwner);
     if (error) {
       showToast('Gagal menghapus', error.message, 'error');
       return;
@@ -1609,6 +1631,7 @@ async function saveLimit() {
   if (supabaseClient && currentOwner) {
     const { error } = await supabaseClient.from('expense_limits').upsert({
       owner_key: currentOwner,
+      owner_id: currentOwner,
       month_key: activeMonth,
       amount: val,
     }, { onConflict: 'owner_key,month_key' });
@@ -1649,7 +1672,7 @@ async function clearAllData() {
     const { error } = await supabaseClient
       .from('expenses')
       .delete()
-      .eq('owner_key', currentOwner);
+      .eq('owner_id', currentOwner);
     if (error) {
       showToast('Gagal menghapus', error.message, 'error');
       return;
