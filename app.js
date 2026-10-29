@@ -17,6 +17,7 @@ let editId = null; // ID data yang sedang di-edit
 let supabaseClient = null;
 let currentOwner = null;
 let isLoadingData = false;
+let authRequestInProgress = false;
 
 // Bulan aktif berdasarkan filter global (default: bulan ini)
 let activeMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
@@ -579,7 +580,12 @@ function clearGatePassword() {
 
 async function handleGateSubmit(event) {
   event.preventDefault();
+  if (authRequestInProgress) return;
+  authRequestInProgress = true;
+
   const form = event.currentTarget;
+  const submitButton = document.getElementById('gate-submit');
+  submitButton.disabled = true;
   const username = document.getElementById('gate-username').value.trim();
   const password = document.getElementById('gate-password').value;
   const error = document.getElementById('gate-error');
@@ -643,6 +649,9 @@ async function handleGateSubmit(event) {
 
       if (signUpResult.error) {
         const message = String(signUpResult.error.message).toLowerCase();
+        if (signUpResult.error.status === 429 || message.includes('rate limit') || message.includes('too many requests')) {
+          throw new Error('Terlalu banyak percobaan signup. Tunggu sekitar 60 detik lalu coba sekali lagi.');
+        }
         if (message.includes('already registered') || message.includes('already exists')) {
           throw new Error('Username ini sudah terdaftar. Gunakan password akun yang benar; jangan membuat akun baru.');
         }
@@ -656,7 +665,11 @@ async function handleGateSubmit(event) {
     }
 
     if (authResult.error || !authResult.data.session) {
-      throw new Error('Username atau password belum cocok. Akun lain yang tidak terdaftar juga tidak bisa login.');
+      const loginMessage = String(authResult.error?.message || '').toLowerCase();
+      if (authResult.error?.status === 429 || loginMessage.includes('too many requests')) {
+        throw new Error('Terlalu banyak percobaan login. Tunggu sekitar 60 detik lalu coba lagi.');
+      }
+      throw new Error('Username atau password belum cocok, atau akun belum terdaftar. Jika sudah terdaftar, jangan tekan Buat Akun berulang kali.');
     }
 
     localStorage.setItem(ACCESS_KEY, JSON.stringify({ username: normalizedUsername }));
@@ -665,6 +678,9 @@ async function handleGateSubmit(event) {
   } catch (failure) {
     error.textContent = failure.message || 'Login gagal. Coba lagi.';
     clearGatePassword();
+  } finally {
+    authRequestInProgress = false;
+    submitButton.disabled = false;
   }
 }
 
