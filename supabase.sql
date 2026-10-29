@@ -87,7 +87,7 @@ as $$
 begin
   if new.owner_id is null then
     new.owner_id := auth.uid();
-  end;
+  end if;
   select u.email into new.owner_email
   from auth.users u
   where u.id = new.owner_id;
