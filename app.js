@@ -602,27 +602,61 @@ async function handleGateSubmit(event) {
     const email = `${normalizedUsername}@dompetku.local`;
     let authResult = await supabaseClient.auth.signInWithPassword({ email, password });
 
+    if (authResult.error && form.dataset.mode !== 'setup') {
+      const legacyConfig = getAccessConfig();
+      const isLegacyAccount = legacyConfig
+        && legacyConfig.username === normalizedUsername
+        && await verifyGatePassword(password, legacyConfig);
+
+      if (isLegacyAccount) {
+        const migrationResult = await supabaseClient.auth.signUp({
+          email,
+          password,
+          options: { data: { username: normalizedUsername } },
+        });
+        if (migrationResult.error) throw migrationResult.error;
+        if (!migrationResult.data.session) {
+          throw new Error('Konfirmasi email aktif. Matikan Email Confirmation agar akun lama dapat dipindahkan.');
+        }
+        authResult = migrationResult;
+      }
+    }
+
+    // Device/browser baru belum memiliki konfigurasi akun lokal, jadi cobalah login
+    // terlebih dahulu. Jika akun memang belum ada, buat akun pada mode setup.
     if (authResult.error && form.dataset.mode === 'setup') {
       const confirmation = document.getElementById('gate-confirm-password').value;
       if (password !== confirmation) {
         error.textContent = 'Ulangi password-nya belum cocok.';
         return;
       }
+      if (password.length < 6) {
+        error.textContent = 'Password minimal 6 karakter untuk akun Supabase.';
+        return;
+      }
+
       const signUpResult = await supabaseClient.auth.signUp({
         email,
         password,
         options: { data: { username: normalizedUsername } },
       });
-      if (signUpResult.error && !String(signUpResult.error.message).toLowerCase().includes('already registered')) {
+
+      if (signUpResult.error) {
+        const message = String(signUpResult.error.message).toLowerCase();
+        if (message.includes('already registered') || message.includes('already exists')) {
+          throw new Error('Username ini sudah terdaftar. Gunakan password akun yang benar; jangan membuat akun baru.');
+        }
         throw signUpResult.error;
       }
-      authResult = signUpResult.error
-        ? await supabaseClient.auth.signInWithPassword({ email, password })
-        : signUpResult;
+
+      if (!signUpResult.data.session) {
+        throw new Error('Konfirmasi email sedang aktif di Supabase. Matikan Email Confirmation, lalu coba daftar kembali.');
+      }
+      authResult = signUpResult;
     }
 
     if (authResult.error || !authResult.data.session) {
-      throw new Error('Username atau password belum cocok.');
+      throw new Error('Username atau password belum cocok. Akun lain yang tidak terdaftar juga tidak bisa login.');
     }
 
     localStorage.setItem(ACCESS_KEY, JSON.stringify({ username: normalizedUsername }));
@@ -643,14 +677,20 @@ async function changeGatePassword(event) {
   message.textContent = '';
 
   try {
-    if (!crypto.subtle) throw new Error('secure-context');
-    const config = getAccessConfig();
-    if (!config || !await verifyGatePassword(currentPassword, config)) {
+    if (!initSupabase()) throw new Error('Supabase belum dikonfigurasi.');
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const user = sessionData.session?.user;
+    if (!user) throw new Error('Sesi login sudah berakhir. Silakan login kembali.');
+
+    const username = String(user.user_metadata?.username || getAccessConfig()?.username || '').toLowerCase();
+    const email = `${username}@dompetku.local`;
+    const verification = await supabaseClient.auth.signInWithPassword({ email, password: currentPassword });
+    if (verification.error) {
       message.textContent = 'Kata sandi saat ini belum cocok.';
       return;
     }
-    if (!newPassword) {
-      message.textContent = 'Kata sandi baru tidak boleh kosong.';
+    if (newPassword.length < 6) {
+      message.textContent = 'Password baru minimal 6 karakter.';
       return;
     }
     if (newPassword !== confirmation) {
@@ -658,14 +698,8 @@ async function changeGatePassword(event) {
       return;
     }
 
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    const verifier = await hashGatePassword(newPassword, salt);
-    localStorage.setItem(ACCESS_KEY, JSON.stringify({
-      ...config,
-      username: config.username,
-      salt: bytesToHex(salt),
-      verifier,
-    }));
+    const { error: updateError } = await supabaseClient.auth.updateUser({ password: newPassword });
+    if (updateError) throw updateError;
     document.getElementById('change-password-form').reset();
     document.querySelectorAll('#change-password-form .password-toggle').forEach(button => {
       const input = document.getElementById(button.dataset.target);
@@ -697,9 +731,24 @@ async function logoutFromApp() {
   showAccessGate();
 }
 
+async function saveAuthProfile(user) {
+  const username = String(user.user_metadata?.username || getAccessConfig()?.username || '')
+    .trim()
+    .toLowerCase();
+  if (!username) return;
+
+  const { error } = await supabaseClient.from('profiles').upsert({
+    id: user.id,
+    username,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'id' });
+  if (error) throw error;
+}
+
 async function completeAuthLogin() {
   const { data } = await supabaseClient.auth.getSession();
   if (!data.session?.user) throw new Error('Sesi login tidak berhasil dibuat.');
+  await saveAuthProfile(data.session.user);
   currentOwner = data.session.user.id;
   openAppGate();
 }
@@ -733,6 +782,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (initSupabase()) {
     const { data } = await supabaseClient.auth.getSession();
     if (data.session?.user) {
+      await saveAuthProfile(data.session.user);
       currentOwner = data.session.user.id;
       openAppGate();
     } else {
