@@ -605,7 +605,7 @@ async function handleGateSubmit(event) {
     }
 
     const normalizedUsername = username.toLowerCase();
-    const email = `${normalizedUsername}@dompetku.local`;
+    const email = `${normalizedUsername}@dompetku.app`;
     let authResult = await supabaseClient.auth.signInWithPassword({ email, password });
 
     if (authResult.error && form.dataset.mode !== 'setup') {
@@ -699,7 +699,7 @@ async function changeGatePassword(event) {
     if (!user) throw new Error('Sesi login sudah berakhir. Silakan login kembali.');
 
     const username = String(user.user_metadata?.username || getAccessConfig()?.username || '').toLowerCase();
-    const email = `${username}@dompetku.local`;
+    const email = `${username}@dompetku.app`;
     const verification = await supabaseClient.auth.signInWithPassword({ email, password: currentPassword });
     if (verification.error) {
       message.textContent = 'Kata sandi saat ini belum cocok.';
