@@ -1235,7 +1235,7 @@ body {
   padding: 36px 38px 28px;
   border: 1px solid rgba(255,255,255,0.9);
   border-radius: 28px;
-  background: #fffafd url("images/foto_berdua.jpeg") center 70% / auto 210% no-repeat;
+  background: #fffafd;
   isolation: isolate;
   box-shadow: 0 24px 70px rgba(168,65,111,0.19), 0 4px 16px rgba(168,65,111,0.08);
   text-align: center;
@@ -1246,6 +1246,19 @@ body {
   -webkit-overflow-scrolling: touch;
   animation: gate-arrive 0.65s cubic-bezier(.2,.8,.2,1) both;
 }
+
+.gate-panel::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border-radius: inherit;
+  background: url("images/foto_berdua.jpeg") center 70% / auto 210% no-repeat;
+  opacity: 0.18;
+  pointer-events: none;
+}
+
+.gate-panel > * { position: relative; z-index: 1; }
 
 .gate-bouquet { font-size: 34px; line-height: 1.2; }
 
