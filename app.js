@@ -788,14 +788,17 @@ async function changeGatePassword(event) {
       button.querySelector('.icon-eye-off').hidden = true;
       button.setAttribute('aria-pressed', 'false');
     });
+    await supabaseClient.auth.signOut();
     sessionStorage.removeItem(ACCESS_SESSION_KEY);
+    localStorage.setItem(ACCESS_KEY, JSON.stringify({ username }));
     document.getElementById('gate-form').reset();
-    document.getElementById('gate-username').value = config.username;
+    document.getElementById('gate-username').value = username;
+    document.getElementById('gate-password').value = '';
     document.getElementById('gate-error').textContent = '';
     setGateMode(false);
-    document.getElementById('gate-copy').textContent = 'Kata sandi berhasil diubah. Silakan login kembali.';
+    document.getElementById('gate-copy').textContent = 'Kata sandi berhasil diubah. Silakan login kembali dengan kata sandi baru.';
     showAccessGate();
-    showToast('Kata sandi diperbarui', 'Silakan login dengan kata sandi baru.', 'success');
+    showToast('Kata sandi diperbarui', 'Silakan login kembali dengan kata sandi baru.', 'success');
   } catch (error) {
     console.error('Gagal mengubah kata sandi:', error);
     message.textContent = error.message || 'Kata sandi gagal diubah.';
