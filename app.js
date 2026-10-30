@@ -119,11 +119,14 @@ function switchAuthMode() {
 }
 
 function showAccessGate() {
+  document.body.classList.add('gate-active');
+  window.scrollTo(0, 0);
   document.getElementById('access-gate').classList.remove('is-hidden');
   document.getElementById('gate-logout').hidden = true;
 }
 
 function openAppGate() {
+  document.body.classList.remove('gate-active');
   document.getElementById('access-gate').classList.add('is-hidden');
   document.getElementById('gate-logout').hidden = false;
   loadSupabaseData();
@@ -847,6 +850,7 @@ let catChartInstance  = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   const accessConfig = getAccessConfig();
+  document.body.classList.add('gate-active');
   setGateMode(false);
   updateAuthCooldownButton();
   document.getElementById('gate-form').addEventListener('submit', handleGateSubmit);
