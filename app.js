@@ -795,8 +795,10 @@ async function changeGatePassword(event) {
     setGateMode(false);
     document.getElementById('gate-copy').textContent = 'Kata sandi berhasil diubah. Silakan login kembali.';
     showAccessGate();
-  } catch {
-    message.textContent = 'Kata sandi hanya dapat diubah lewat localhost atau HTTPS.';
+    showToast('Kata sandi diperbarui', 'Silakan login dengan kata sandi baru.', 'success');
+  } catch (error) {
+    console.error('Gagal mengubah kata sandi:', error);
+    message.textContent = error.message || 'Kata sandi gagal diubah.';
   }
 }
 
