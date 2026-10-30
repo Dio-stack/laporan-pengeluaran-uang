@@ -839,6 +839,236 @@ async function completeAuthLogin() {
   openAppGate();
 }
 
+let receiptDemoFile = null;
+let receiptPreviewUrl = '';
+
+function normalizeReceiptAmount(value) {
+  const digits = String(value).replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+  return Number(digits || 0);
+}
+
+function parseReceiptDate(text) {
+  const match = text.match(/\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2}|\d{4})\b/);
+  if (!match) return '';
+  const day = match[1].padStart(2, '0');
+  const month = match[2].padStart(2, '0');
+  let year = match[3].length === 2 ? `20${match[3]}` : match[3];
+  const parsed = new Date(`${year}-${month}-${day}T00:00:00`);
+  return !Number.isNaN(parsed.getTime()) ? `${year}-${month}-${day}` : '';
+}
+
+function parseReceiptAmount(text) {
+  const lines = text.split(/\n/);
+  const totalLine = lines.find(line => /grand total|jumlah bayar|total bayar|total belanja|\btotal\b|\btagihan\b|\bbayar\b/i.test(line));
+  const candidates = [];
+
+  if (totalLine) {
+    const amounts = totalLine.match(/(?:rp\.?\s*)?[0-9][0-9.,]{2,}/gi) || [];
+    amounts.forEach(amount => candidates.push(normalizeReceiptAmount(amount)));
+  }
+
+  lines.forEach(line => {
+    const amounts = line.match(/(?:rp\.?\s*)?[0-9][0-9.,]{2,}/gi) || [];
+    amounts.forEach(amount => {
+      const normalized = normalizeReceiptAmount(amount);
+      if (normalized >= 1000 && !/\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/.test(line)) candidates.push(normalized);
+    });
+  });
+
+  return candidates.length ? Math.max(...candidates) : 0;
+}
+
+function parseReceiptName(text) {
+  const ignored = /^(?:receipt|invoice|nota|struk|no\.?\s*[.:]|tanggal|date|total|welcome|terima kasih)/i;
+  const lines = text.split(/\n/).map(line => line.trim()).filter(Boolean);
+  const name = lines.find(line => line.length >= 3 && line.length <= 60 && !ignored.test(line));
+  return name ? name.replace(/[^a-zA-Z0-9 &.'_-]/g, '').trim().slice(0, 60) : '';
+}
+
+const RECEIPT_CATEGORIES = {
+  makanan: 'Makanan & Minuman',
+  transport: 'Transportasi',
+  hiburan: 'Hiburan',
+  belanja: 'Belanja',
+  kesehatan: 'Kesehatan',
+  lainnya: 'Lainnya',
+};
+
+async function classifyReceiptWithAI(text) {
+  if (!initSupabase()) throw new Error('Supabase belum dikonfigurasi.');
+  const { data, error } = await supabaseClient.functions.invoke('classify-expense', {
+    body: { receiptText: text.slice(0, 8000) },
+  });
+  if (error) throw error;
+
+  const category = String(data?.category || '').toLowerCase();
+  if (!RECEIPT_CATEGORIES[category]) throw new Error('Kategori hasil AI tidak dikenali.');
+  return category;
+}
+
+function toggleReceiptDemo() {
+  const demo = document.getElementById('receipt-demo');
+  const button = document.getElementById('receipt-demo-toggle');
+  const opening = demo.hidden;
+  demo.hidden = !opening;
+  button.hidden = false;
+  button.textContent = opening ? 'Tutup scanner' : 'Buka scanner';
+  button.setAttribute('aria-expanded', String(opening));
+}
+
+function selectReceiptImage(event) {
+  const [file] = event.target.files;
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    showToast('Format belum didukung', 'Pilih foto JPG, PNG, atau format gambar lain yang didukung browser.', 'error');
+    event.target.value = '';
+    return;
+  }
+  if (file.size > 15 * 1024 * 1024) {
+    showToast('Foto terlalu besar', 'Ukuran foto maksimal 15 MB untuk demo OCR.', 'error');
+    event.target.value = '';
+    return;
+  }
+  receiptDemoFile = file;
+  if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
+  receiptPreviewUrl = URL.createObjectURL(file);
+  document.getElementById('receipt-preview').src = receiptPreviewUrl;
+  document.getElementById('receipt-preview-row').hidden = false;
+  document.getElementById('receipt-results').hidden = true;
+}
+
+async function prepareReceiptImage(file) {
+  let image;
+  if (typeof createImageBitmap === 'function') {
+    image = await createImageBitmap(file);
+  } else {
+    image = await new Promise((resolve, reject) => {
+      const fallbackImage = new Image();
+      fallbackImage.onload = () => resolve(fallbackImage);
+      fallbackImage.onerror = () => reject(new Error('Foto tidak dapat dibaca oleh browser.'));
+      fallbackImage.src = URL.createObjectURL(file);
+    });
+  }
+
+  const maxSide = 2200;
+  const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(image.width * scale);
+  canvas.height = Math.round(image.height * scale);
+  const context = canvas.getContext('2d', { alpha: false });
+  context.fillStyle = '#fff';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  image.close?.();
+  return await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+}
+
+async function scanReceiptDemo() {
+  if (!receiptDemoFile) return;
+  if (!window.Tesseract) {
+    showToast('OCR belum tersedia', 'Library Tesseract gagal dimuat. Periksa koneksi internet.', 'error');
+    return;
+  }
+
+  const progress = document.getElementById('receipt-progress');
+  const progressBar = document.getElementById('receipt-progress-bar');
+  const progressValue = document.getElementById('receipt-progress-value');
+  const progressLabel = document.getElementById('receipt-progress-label');
+  const button = document.getElementById('receipt-process');
+  button.disabled = true;
+  progress.hidden = false;
+  document.getElementById('receipt-results').hidden = true;
+
+  try {
+    const preparedImage = await prepareReceiptImage(receiptDemoFile);
+    if (!preparedImage) throw new Error('Foto tidak dapat diproses oleh browser ini.');
+    const result = await window.Tesseract.recognize(preparedImage, 'ind+eng', {
+      logger(message) {
+        if (message.status !== 'recognizing text') return;
+        const percent = Math.round((message.progress || 0) * 100);
+        progressBar.style.width = `${percent}%`;
+        progressValue.textContent = `${percent}%`;
+        progressLabel.textContent = 'Membaca teks struk...';
+      },
+    });
+    const text = result.data.text.trim();
+    document.getElementById('receipt-raw-text').textContent = text || '(Tidak ada teks terbaca)';
+    document.getElementById('receipt-result-date').value = parseReceiptDate(text) || todayStr();
+    document.getElementById('receipt-result-name').value = parseReceiptName(text);
+    document.getElementById('receipt-result-category').value = 'Menganalisis dengan AI...';
+    document.getElementById('receipt-result-amount').value = parseReceiptAmount(text) || '';
+    document.getElementById('receipt-results').hidden = false;
+    try {
+      const category = await classifyReceiptWithAI(text);
+      document.getElementById('receipt-result-category').value = RECEIPT_CATEGORIES[category];
+      document.getElementById('receipt-result-category').dataset.value = category;
+    } catch (classificationError) {
+      console.error('Gagal klasifikasi AI:', classificationError);
+      document.getElementById('receipt-result-category').value = 'AI belum tersedia';
+      document.getElementById('receipt-result-category').dataset.value = '';
+      showToast('Kategori AI belum tersedia', classificationError.message || 'Deploy Edge Function dan API key terlebih dahulu.', 'error');
+      return;
+    }
+    showToast('Scan selesai', 'Kategori sudah dideteksi AI. Periksa hasil sebelum disimpan.', 'success');
+  } catch (error) {
+    console.error('Gagal scan struk:', error);
+    showToast('Scan gagal', error.message || 'Struk belum berhasil dibaca.', 'error');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function getReceiptExpenseData() {
+  const date = document.getElementById('receipt-result-date').value;
+  const name = document.getElementById('receipt-result-name').value.trim();
+  const category = document.getElementById('receipt-result-category').dataset.value;
+  const amount = Number(document.getElementById('receipt-result-amount').value);
+  if (!date || !name || !category || !Number.isFinite(amount) || amount <= 0) {
+    throw new Error('Tanggal, nama transaksi, kategori, dan nominal wajib diisi dengan benar.');
+  }
+  return { date, name, category, amount };
+}
+
+function fillExpenseFromReceipt() {
+  try {
+    const expense = getReceiptExpenseData();
+    document.getElementById('inp-date').value = expense.date;
+    document.getElementById('inp-name').value = expense.name;
+    document.getElementById('inp-cat').value = expense.category;
+    document.getElementById('inp-amount').value = expense.amount;
+    document.getElementById('expense-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showToast('Form terisi', 'Periksa hasilnya, lalu tekan Simpan Pengeluaran.', 'success');
+  } catch (error) {
+    showToast('Hasil belum lengkap', error.message, 'error');
+  }
+}
+
+async function saveReceiptToSupabase() {
+  try {
+    if (!initSupabase() || !currentOwner) throw new Error('Sesi Supabase belum aktif. Silakan login kembali.');
+    const expense = getReceiptExpenseData();
+    const button = document.getElementById('receipt-save');
+    button.disabled = true;
+    const { error } = await supabaseClient.from('expenses').insert({
+      owner_key: currentOwner,
+      owner_id: currentOwner,
+      expense_date: expense.date,
+      name: expense.name,
+      category: expense.category,
+      amount: expense.amount,
+    });
+    if (error) throw error;
+    await loadSupabaseData();
+    showToast('Transaksi tersimpan', 'Struk berhasil disimpan ke Supabase.', 'success');
+    document.getElementById('receipt-results').hidden = true;
+  } catch (error) {
+    console.error('Gagal menyimpan scan struk:', error);
+    showToast('Gagal menyimpan', error.message || 'Transaksi belum berhasil disimpan.', 'error');
+  } finally {
+    document.getElementById('receipt-save').disabled = false;
+  }
+}
+
 /* Referensi Chart.js instances */
 let dashChartInstance = null;
 let mainChartInstance = null;
@@ -864,6 +1094,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('reset-credentials-form').addEventListener('submit', handleResetCredentialsSubmit);
   document.getElementById('recovery-settings-form').addEventListener('submit', saveRecoveryCode);
   document.getElementById('change-password-form').addEventListener('submit', changeGatePassword);
+  document.getElementById('receipt-demo-toggle').addEventListener('click', toggleReceiptDemo);
+  document.getElementById('receipt-image').addEventListener('change', selectReceiptImage);
+  document.getElementById('receipt-process').addEventListener('click', scanReceiptDemo);
+  document.getElementById('receipt-fill-form').addEventListener('click', fillExpenseFromReceipt);
+  document.getElementById('receipt-save').addEventListener('click', saveReceiptToSupabase);
   document.querySelectorAll('.password-toggle').forEach(button => {
     button.addEventListener('click', () => togglePasswordVisibility(button));
   });

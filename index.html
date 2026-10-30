@@ -213,6 +213,65 @@
     <!-- ═══════════════ SECTION: TRANSAKSI ══════════════ -->
     <section class="section" id="section-transaksi">
 
+      <!-- Scan struk -->
+      <div class="card receipt-demo-card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Scan Struk Pembelian</div>
+            <div class="receipt-demo-caption">Hasil OCR dapat diperiksa sebelum disimpan ke database.</div>
+          </div>
+          <button class="btn-icon" type="button" id="receipt-demo-toggle" aria-expanded="false">Buka scanner</button>
+        </div>
+
+        <div class="receipt-demo" id="receipt-demo" hidden>
+          <label class="receipt-upload" for="receipt-image">
+            <span class="receipt-upload-icon" aria-hidden="true">⌁</span>
+            <strong>Pilih atau foto struk</strong>
+            <span>Gunakan foto yang terang, lurus, dan tidak terpotong</span>
+          </label>
+          <input id="receipt-image" type="file" accept="image/*" capture="environment" hidden />
+
+          <div class="receipt-preview-row" id="receipt-preview-row" hidden>
+            <img id="receipt-preview" class="receipt-preview" alt="Preview struk yang dipilih" />
+            <button class="btn-secondary" type="button" id="receipt-process">Scan struk</button>
+          </div>
+
+          <div class="receipt-progress" id="receipt-progress" hidden>
+            <div><span id="receipt-progress-label">Menyiapkan OCR...</span><strong id="receipt-progress-value">0%</strong></div>
+            <div class="receipt-progress-track"><span id="receipt-progress-bar"></span></div>
+          </div>
+
+          <div class="receipt-results" id="receipt-results" hidden>
+            <div class="receipt-result-grid">
+              <div class="form-group">
+                <label for="receipt-result-date">Tanggal terbaca</label>
+                <input type="date" id="receipt-result-date" />
+              </div>
+              <div class="form-group">
+                <label for="receipt-result-name">Nama toko / transaksi</label>
+                <input type="text" id="receipt-result-name" />
+              </div>
+              <div class="form-group">
+                <label for="receipt-result-category">Kategori hasil AI</label>
+                <input type="text" id="receipt-result-category" readonly />
+              </div>
+              <div class="form-group">
+                <label for="receipt-result-amount">Nominal total</label>
+                <input type="number" id="receipt-result-amount" min="1" />
+              </div>
+            </div>
+            <details class="receipt-raw-details">
+              <summary>Teks mentah hasil OCR</summary>
+              <pre id="receipt-raw-text"></pre>
+            </details>
+            <div class="receipt-actions">
+              <button class="btn-secondary" type="button" id="receipt-fill-form">Isi ke form</button>
+              <button class="btn-primary" type="button" id="receipt-save">Simpan ke transaksi</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Form Input -->
       <div class="card form-card">
         <div class="card-header">
@@ -476,6 +535,7 @@
   <!-- Tombol FAB Ringkasan -->
   <button class="fab" onclick="showSummaryModal()" title="Lihat Ringkasan">◎</button>
 
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="supabase-config.js"></script>
   <script src="app.js"></script>
 </body>
