@@ -52,6 +52,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
       }),
     });
 
+    console.log(response);
+
     if (!response.ok) {
       const providerBody = await response.text();
       if (response.status === 401 || response.status === 403) {
