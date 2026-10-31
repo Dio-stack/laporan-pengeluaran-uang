@@ -19,9 +19,9 @@ Deno.serve(async (request: Request): Promise<Response> => {
     const apiKey = Deno.env.get('APINEX_API_KEY');
     if (!apiKey) throw new Error('Secret APINEX_API_KEY belum dikonfigurasi di Supabase.');
 
-    const { receiptText } = await request.json();
-    const text = String(receiptText || '').trim().slice(0, 8000);
-    if (!text) throw new Error('Teks struk kosong.');
+    const { imageBase64, mimeType = 'image/jpeg' } = await request.json();
+    const image = String(imageBase64 || '').trim();
+    if (!image) throw new Error('Foto struk belum dikirim.');
 
     const apiUrl = Deno.env.get('APINEX_API_URL') || 'https://api.apinex.bond/v1/chat/completions';
     const model = Deno.env.get('APINEX_MODEL') || 'free/gemini-3.8-flash';
@@ -39,9 +39,15 @@ Deno.serve(async (request: Request): Promise<Response> => {
         messages: [
           {
             role: 'system',
-            content: 'Klasifikasikan transaksi dari teks struk ke salah satu category. Aturan: Indomaret, Alfamart, supermarket, minimarket, toko kelontong, atau toko umum = belanja; cafe, restoran, warung, kopi, makanan = makanan; apotek atau klinik = kesehatan; bensin, parkir, bus, kereta, taksi = transport; bioskop, game, tiket hiburan = hiburan. Hanya jawab JSON persis: {"category":"makanan|transport|hiburan|belanja|kesehatan|lainnya"}.',
+            content: 'Baca foto struk. Ekstrak tanggal format YYYY-MM-DD, nama toko/transaksi, nominal total angka tanpa Rp, kategori salah satu: makanan, transport, hiburan, belanja, kesehatan, lainnya, dan teks singkat terbaca. Toko seperti Indomaret, Alfamart, supermarket, minimarket = belanja. Jawab JSON hanya dengan keys date, name, amount, category, rawText.',
           },
-          { role: 'user', content: text },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Analisis struk pada gambar ini.' },
+              { type: 'image_url', image_url: { url: `data:${mimeType};base64,${image}` } },
+            ],
+          },
         ],
       }),
     });
@@ -62,20 +68,25 @@ Deno.serve(async (request: Request): Promise<Response> => {
       throw new Error(`Apinex mengembalikan respons non-JSON: ${providerText.slice(0, 300)}`);
     }
     const content = aiResponse.choices?.[0]?.message?.content || '{}';
-    let category = '';
+    let parsed;
     try {
-      category = JSON.parse(content).category;
+      parsed = JSON.parse(content);
     } catch {
-      const match = content.match(/"category"\s*:\s*"([a-z]+)"/i);
-      category = match?.[1] || '';
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
     }
-    category = String(category).toLowerCase().trim();
-
+    const category = String(parsed.category || 'lainnya').toLowerCase().trim();
     if (!allowedCategories.includes(category)) {
       throw new Error(`Kategori AI tidak valid: ${category || '(kosong)'}`);
     }
-
-    return new Response(JSON.stringify({ category }), {
+    const amount = Number(String(parsed.amount || 0).replace(/[^0-9]/g, ''));
+    return new Response(JSON.stringify({
+      date: parsed.date || '',
+      name: String(parsed.name || '').slice(0, 60),
+      amount,
+      category,
+      rawText: String(parsed.rawText || ''),
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {

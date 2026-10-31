@@ -894,10 +894,10 @@ const RECEIPT_CATEGORIES = {
   lainnya: 'Lainnya',
 };
 
-async function classifyReceiptWithAI(text) {
+async function analyzeReceiptWithAI(imageBase64, mimeType) {
   if (!initSupabase()) throw new Error('Supabase belum dikonfigurasi.');
   const { data, error } = await supabaseClient.functions.invoke('classify-expense', {
-    body: { receiptText: text.slice(0, 8000) },
+    body: { imageBase64, mimeType },
   });
   if (error) {
     let providerMessage = error.message || 'Edge Function gagal dipanggil.';
@@ -948,6 +948,15 @@ function selectReceiptImage(event) {
   document.getElementById('receipt-results').hidden = true;
 }
 
+function receiptBlobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1]);
+    reader.onerror = () => reject(new Error('Foto struk gagal dikonversi.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 async function prepareReceiptImage(file) {
   let image;
   if (typeof createImageBitmap === 'function') {
@@ -976,10 +985,6 @@ async function prepareReceiptImage(file) {
 
 async function scanReceiptDemo() {
   if (!receiptDemoFile) return;
-  if (!window.Tesseract) {
-    showToast('OCR belum tersedia', 'Library Tesseract gagal dimuat. Periksa koneksi internet.', 'error');
-    return;
-  }
 
   const progress = document.getElementById('receipt-progress');
   const progressBar = document.getElementById('receipt-progress-bar');
@@ -991,28 +996,26 @@ async function scanReceiptDemo() {
   document.getElementById('receipt-results').hidden = true;
 
   try {
+    progressLabel.textContent = 'Mengirim foto ke AI...';
+    progressBar.style.width = '35%';
+    progressValue.textContent = '35%';
     const preparedImage = await prepareReceiptImage(receiptDemoFile);
     if (!preparedImage) throw new Error('Foto tidak dapat diproses oleh browser ini.');
-    const result = await window.Tesseract.recognize(preparedImage, 'ind+eng', {
-      logger(message) {
-        if (message.status !== 'recognizing text') return;
-        const percent = Math.round((message.progress || 0) * 100);
-        progressBar.style.width = `${percent}%`;
-        progressValue.textContent = `${percent}%`;
-        progressLabel.textContent = 'Membaca teks struk...';
-      },
-    });
-    const text = result.data.text.trim();
-    document.getElementById('receipt-raw-text').textContent = text || '(Tidak ada teks terbaca)';
-    document.getElementById('receipt-result-date').value = parseReceiptDate(text) || todayStr();
-    document.getElementById('receipt-result-name').value = parseReceiptName(text);
-    document.getElementById('receipt-result-category').value = 'Menganalisis dengan AI...';
-    document.getElementById('receipt-result-amount').value = parseReceiptAmount(text) || '';
-    document.getElementById('receipt-results').hidden = false;
+    const imageBase64 = await receiptBlobToBase64(preparedImage);
+    progressBar.style.width = '70%';
+    progressValue.textContent = '70%';
+    progressLabel.textContent = 'AI sedang membaca struk...';
     try {
-      const category = await classifyReceiptWithAI(text);
-      document.getElementById('receipt-result-category').value = RECEIPT_CATEGORIES[category];
-      document.getElementById('receipt-result-category').dataset.value = category;
+      const result = await analyzeReceiptWithAI(imageBase64, 'image/jpeg');
+      document.getElementById('receipt-raw-text').textContent = result.rawText || '(Apinex tidak mengembalikan teks mentah)';
+      document.getElementById('receipt-result-date').value = result.date || todayStr();
+      document.getElementById('receipt-result-name').value = result.name || '';
+      document.getElementById('receipt-result-category').value = RECEIPT_CATEGORIES[result.category] || 'Lainnya';
+      document.getElementById('receipt-result-category').dataset.value = result.category || 'lainnya';
+      document.getElementById('receipt-result-amount').value = result.amount || '';
+      document.getElementById('receipt-results').hidden = false;
+      progressBar.style.width = '100%';
+      progressValue.textContent = '100%';
     } catch (classificationError) {
       console.error('Gagal klasifikasi AI:', classificationError);
       document.getElementById('receipt-result-category').value = 'AI belum tersedia';
