@@ -1007,6 +1007,7 @@ async function scanReceiptDemo() {
     progressLabel.textContent = 'AI sedang membaca struk...';
     try {
       const result = await analyzeReceiptWithAI(imageBase64, 'image/jpeg');
+      console.log(result);
       document.getElementById('receipt-raw-text').textContent = result.rawText || '(Apinex tidak mengembalikan teks mentah)';
       document.getElementById('receipt-result-date').value = result.date || todayStr();
       document.getElementById('receipt-result-name').value = result.name || '';
