@@ -914,7 +914,7 @@ async function analyzeReceiptWithAI(imageBase64, mimeType) {
 
   const category = String(data?.category || '').toLowerCase();
   if (!RECEIPT_CATEGORIES[category]) throw new Error('Kategori hasil AI tidak dikenali.');
-  return category;
+  return data;
 }
 
 function toggleReceiptDemo() {
@@ -1008,7 +1008,7 @@ async function scanReceiptDemo() {
     try {
       const result = await analyzeReceiptWithAI(imageBase64, 'image/jpeg');
       console.log(result);
-      document.getElementById('receipt-raw-text').textContent = result.rawText || '(Apinex tidak mengembalikan teks mentah)';
+      document.getElementById('receipt-raw-text').textContent = result.rawText || '(AI membaca data tanpa teks mentah terpisah)';
       document.getElementById('receipt-result-date').value = result.date || todayStr();
       document.getElementById('receipt-result-name').value = result.name || '';
       document.getElementById('receipt-result-category').value = RECEIPT_CATEGORIES[result.category] || 'Lainnya';

@@ -39,7 +39,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
         messages: [
           {
             role: 'system',
-            content: 'Baca foto struk. Ekstrak tanggal format YYYY-MM-DD, nama toko/transaksi, nominal total angka tanpa Rp, kategori salah satu: makanan, transport, hiburan, belanja, kesehatan, lainnya, dan teks singkat terbaca. Toko seperti Indomaret, Alfamart, supermarket, minimarket = belanja. Jawab JSON hanya dengan keys date, name, amount, category, rawText.',
+            content: 'Baca foto struk secara langsung. Ekstrak tanggal format YYYY-MM-DD, nama toko/transaksi, nominal total angka tanpa Rp, kategori salah satu: makanan, transport, hiburan, belanja, kesehatan, lainnya, dan seluruh teks penting yang terbaca pada struk. rawText wajib berisi teks hasil bacaan, bukan ringkasan. Toko seperti Indomaret, Alfamart, supermarket, minimarket = belanja. Jawab JSON hanya dengan keys date, name, amount, category, rawText.',
           },
           {
             role: 'user',
@@ -69,7 +69,10 @@ Deno.serve(async (request: Request): Promise<Response> => {
     } catch {
       throw new Error(`Apinex mengembalikan respons non-JSON: ${providerText.slice(0, 300)}`);
     }
-    const content = aiResponse.choices?.[0]?.message?.content || '{}';
+    const messageContent = aiResponse.choices?.[0]?.message?.content || '{}';
+    const content = Array.isArray(messageContent)
+      ? messageContent.map(part => part.text || '').join('\n')
+      : String(messageContent);
     let parsed;
     try {
       parsed = JSON.parse(content);
