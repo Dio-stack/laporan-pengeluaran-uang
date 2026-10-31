@@ -1,0 +1,11 @@
+{
+  "name": "angguns-report",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "copilot-server": "node copilot-server.js"
+  },
+  "dependencies": {
+    "@github/copilot-sdk": "^1.0.28"
+  }
+}

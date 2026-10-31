@@ -899,7 +899,18 @@ async function classifyReceiptWithAI(text) {
   const { data, error } = await supabaseClient.functions.invoke('classify-expense', {
     body: { receiptText: text.slice(0, 8000) },
   });
-  if (error) throw error;
+  if (error) {
+    let providerMessage = error.message || 'Edge Function gagal dipanggil.';
+    if (error.context?.json) {
+      try {
+        const contextBody = await error.context.json();
+        providerMessage = contextBody.error || providerMessage;
+      } catch (_) {
+        // Gunakan pesan bawaan jika Supabase tidak menyertakan JSON.
+      }
+    }
+    throw new Error(providerMessage);
+  }
 
   const category = String(data?.category || '').toLowerCase();
   if (!RECEIPT_CATEGORIES[category]) throw new Error('Kategori hasil AI tidak dikenali.');
