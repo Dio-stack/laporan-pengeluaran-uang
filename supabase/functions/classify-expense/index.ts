@@ -28,7 +28,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': 'Bearer ' + apiKey,
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
@@ -52,10 +52,16 @@ Deno.serve(async (request: Request): Promise<Response> => {
       }),
     });
 
-    console.log(response);
-
     if (!response.ok) {
       const providerBody = await response.text();
+      if (response.status === 402) {
+        return new Response(JSON.stringify({
+          error: 'Kuota AI gratis sedang tidak tersedia. Lakukan check-in harian Apinex atau tambahkan kredit.',
+        }), {
+          status: 402,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       if (response.status === 401 || response.status === 403) {
         throw new Error(`Apinex menolak API key (${response.status}). Periksa secret APINEX_API_KEY.`);
       }

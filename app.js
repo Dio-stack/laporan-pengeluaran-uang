@@ -904,10 +904,17 @@ async function analyzeReceiptWithAI(imageBase64, mimeType) {
     if (error.context?.json) {
       try {
         const contextBody = await error.context.json();
-        providerMessage = contextBody.error || providerMessage;
+        providerMessage = contextBody.error || contextBody.message || providerMessage;
       } catch (_) {
         // Gunakan pesan bawaan jika Supabase tidak menyertakan JSON.
       }
+    }
+    const providerStatus = error.context?.status;
+    if (providerStatus === 402 || providerMessage.includes('Daily check-in required')) {
+      throw new Error('Kuota AI gratis sedang tidak tersedia. Provider meminta check-in harian atau kredit tambahan.');
+    }
+    if (providerStatus === 401 || providerStatus === 403 || providerMessage.includes('menolak API key')) {
+      throw new Error('Klasifikasi AI ditolak oleh provider. API key atau model perlu diperiksa.');
     }
     throw new Error(providerMessage);
   }
@@ -1118,7 +1125,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     button.addEventListener('click', () => togglePasswordVisibility(button));
   });
   if (initSupabase()) {
-    const { data } = await supabaseClient.auth.getSession();
+    const { data, error } = await supabaseClient.auth.getSession();
+    if (error && /refresh token|invalid refresh token|session/i.test(String(error.message))) {
+      await supabaseClient.auth.signOut({ scope: 'local' }).catch(() => {});
+      await clearInvalidSupabaseSession();
+    }
+    if (!data.session && sessionStorage.getItem(ACCESS_SESSION_KEY) === 'true') {
+      await clearInvalidSupabaseSession();
+    }
     if (data.session?.user) {
       await saveAuthProfile(data.session.user);
       currentOwner = data.session.user.id;
@@ -1191,6 +1205,15 @@ function initSupabase() {
   if (!isSupabaseConfigured() || supabaseClient) return Boolean(supabaseClient);
   supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
   return true;
+}
+
+async function clearInvalidSupabaseSession() {
+  Object.keys(localStorage).forEach(key => {
+    if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+      localStorage.removeItem(key);
+    }
+  });
+  sessionStorage.removeItem(ACCESS_SESSION_KEY);
 }
 
 function mapExpense(row) {
