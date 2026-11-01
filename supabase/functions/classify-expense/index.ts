@@ -55,8 +55,11 @@ Deno.serve(async (request: Request): Promise<Response> => {
     if (!response.ok) {
       const providerBody = await response.text();
       if (response.status === 402) {
+        const providerMessage = providerBody.slice(0, 600);
         return new Response(JSON.stringify({
           error: 'Kuota AI gratis sedang tidak tersedia. Lakukan check-in harian Apinex atau tambahkan kredit.',
+          providerStatus: 402,
+          providerMessage,
         }), {
           status: 402,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

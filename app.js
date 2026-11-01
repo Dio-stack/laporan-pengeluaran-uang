@@ -883,17 +883,22 @@ async function analyzeReceiptWithAI(imageBase64, mimeType) {
   });
   if (error) {
     let providerMessage = error.message || 'Edge Function gagal dipanggil.';
-    if (error.context?.json) {
+    let providerStatus = error.context?.status;
+    if (typeof error.context?.json === 'function') {
       try {
         const contextBody = await error.context.json();
         providerMessage = contextBody.error || contextBody.message || providerMessage;
+        providerStatus = contextBody.providerStatus || providerStatus;
       } catch (_) {
         // Gunakan pesan bawaan jika Supabase tidak menyertakan JSON.
       }
     }
-    const providerStatus = error.context?.status;
-    if (providerStatus === 402 || providerMessage.includes('Daily check-in required')) {
-      throw new Error('Kuota AI gratis sedang tidak tersedia. Provider meminta check-in harian atau kredit tambahan.');
+    const normalizedMessage = String(providerMessage).toLowerCase();
+    if (providerStatus === 402
+      || normalizedMessage.includes('daily free token allowance')
+      || normalizedMessage.includes('daily check-in required')
+      || normalizedMessage.includes('quota') && normalizedMessage.includes('free')) {
+      throw new Error('Kuota harian AI gratis Apinex sudah habis. Silakan tunggu reset harian, lakukan check-in, atau tambahkan kredit.');
     }
     if (providerStatus === 401 || providerStatus === 403 || providerMessage.includes('menolak API key')) {
       throw new Error('Klasifikasi AI ditolak oleh provider. API key atau model perlu diperiksa.');
