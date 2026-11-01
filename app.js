@@ -843,49 +843,6 @@ let receiptDemoFile = null;
 let receiptPreviewUrl = '';
 let receiptScanGeneration = 0;
 
-function normalizeReceiptAmount(value) {
-  const digits = String(value).replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
-  return Number(digits || 0);
-}
-
-function parseReceiptDate(text) {
-  const match = text.match(/\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2}|\d{4})\b/);
-  if (!match) return '';
-  const day = match[1].padStart(2, '0');
-  const month = match[2].padStart(2, '0');
-  let year = match[3].length === 2 ? `20${match[3]}` : match[3];
-  const parsed = new Date(`${year}-${month}-${day}T00:00:00`);
-  return !Number.isNaN(parsed.getTime()) ? `${year}-${month}-${day}` : '';
-}
-
-function parseReceiptAmount(text) {
-  const lines = text.split(/\n/);
-  const totalLine = lines.find(line => /grand total|jumlah bayar|total bayar|total belanja|\btotal\b|\btagihan\b|\bbayar\b/i.test(line));
-  const candidates = [];
-
-  if (totalLine) {
-    const amounts = totalLine.match(/(?:rp\.?\s*)?[0-9][0-9.,]{2,}/gi) || [];
-    amounts.forEach(amount => candidates.push(normalizeReceiptAmount(amount)));
-  }
-
-  lines.forEach(line => {
-    const amounts = line.match(/(?:rp\.?\s*)?[0-9][0-9.,]{2,}/gi) || [];
-    amounts.forEach(amount => {
-      const normalized = normalizeReceiptAmount(amount);
-      if (normalized >= 1000 && !/\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/.test(line)) candidates.push(normalized);
-    });
-  });
-
-  return candidates.length ? Math.max(...candidates) : 0;
-}
-
-function parseReceiptName(text) {
-  const ignored = /^(?:receipt|invoice|nota|struk|no\.?\s*[.:]|tanggal|date|total|welcome|terima kasih)/i;
-  const lines = text.split(/\n/).map(line => line.trim()).filter(Boolean);
-  const name = lines.find(line => line.length >= 3 && line.length <= 60 && !ignored.test(line));
-  return name ? name.replace(/[^a-zA-Z0-9 &.'_-]/g, '').trim().slice(0, 60) : '';
-}
-
 const RECEIPT_CATEGORIES = {
   makanan: 'Makanan & Minuman',
   transport: 'Transportasi',
@@ -1045,7 +1002,6 @@ async function scanReceiptDemo() {
     try {
       const result = await analyzeReceiptWithAI(imageBase64, 'image/jpeg');
       if (scanGeneration !== receiptScanGeneration) return;
-      console.log(result);
       document.getElementById('receipt-raw-text').textContent = result.rawText || '(AI membaca data tanpa teks mentah terpisah)';
       document.getElementById('receipt-result-date').value = result.date || todayStr();
       document.getElementById('receipt-result-name').value = result.name || '';
