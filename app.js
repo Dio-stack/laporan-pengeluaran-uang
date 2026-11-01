@@ -125,11 +125,11 @@ function showAccessGate() {
   document.getElementById('gate-logout').hidden = true;
 }
 
-function openAppGate() {
+function openAppGate(loadData = true) {
   document.body.classList.remove('gate-active');
   document.getElementById('access-gate').classList.add('is-hidden');
   document.getElementById('gate-logout').hidden = false;
-  loadSupabaseData();
+  if (loadData) loadSupabaseData();
 }
 
 function bytesToHex(bytes) {
@@ -363,8 +363,32 @@ async function loginWithPasskey() {
       throw new Error('Passkey perangkat ini tidak cocok dengan data pendaftaran. Pastikan memakai browser dan alamat website yang sama, atau hapus lalu daftarkan ulang passkey.');
     }
 
+    if (!initSupabase()) {
+      throw new Error('Konfigurasi Supabase belum tersedia. Login dengan password tidak dapat diproses.');
+    }
+
+    const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+    if (sessionError || !sessionData.session?.user) {
+      document.getElementById('gate-username').value = config.username;
+      document.getElementById('gate-error').textContent =
+        'Sesi Supabase sudah berakhir. Masukkan password akun ini agar data kembali dimuat.';
+      showAccessGate();
+      return;
+    }
+
+    const sessionUsername = String(sessionData.session.user.user_metadata?.username || '')
+      .trim()
+      .toLowerCase();
+    if (sessionUsername && sessionUsername !== config.username) {
+      await supabaseClient.auth.signOut({ scope: 'local' });
+      throw new Error(`Sesi perangkat aktif milik akun "${sessionUsername}". Login dengan password akun "${config.username}" terlebih dahulu.`);
+    }
+
     sessionStorage.setItem(ACCESS_SESSION_KEY, 'true');
-    openAppGate();
+    currentOwner = sessionData.session.user.id;
+    await saveAuthProfile(sessionData.session.user);
+    await loadSupabaseData();
+    openAppGate(false);
     showToast('Login berhasil', 'Verifikasi passkey berhasil.', 'success');
   } catch (failure) {
     error.textContent = failure.name === 'NotAllowedError'
@@ -1227,7 +1251,9 @@ async function loadSupabaseData() {
   if (isLoadingData || !initSupabase()) return;
 
   const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-  if (userError) throw userError;
+  if (userError || !userData.user) {
+    throw userError || new Error('Sesi akun tidak ditemukan.');
+  }
   currentOwner = userData.user?.id || null;
   if (!currentOwner) return;
   isLoadingData = true;
@@ -1245,8 +1271,8 @@ async function loadSupabaseData() {
     renderAll();
   } catch (error) {
     console.error(error);
-    entries = JSON.parse(localStorage.getItem('dompetku_entries') || '[]');
-    limit = parseFloat(localStorage.getItem('dompetku_limit') || '0');
+    entries = [];
+    limit = 0;
     renderAll();
     showToast('Database belum terhubung', error.message || 'Data ditampilkan dari penyimpanan browser.', 'warn');
   } finally {
