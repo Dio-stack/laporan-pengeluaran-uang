@@ -62,10 +62,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      if (response.status === 401 || response.status === 403) {
-        throw new Error(`Apinex menolak API key (${response.status}). Periksa secret APINEX_API_KEY.`);
-      }
-      throw new Error(`Apinex mengembalikan status ${response.status}${providerBody ? `: ${providerBody.slice(0, 300)}` : ''}`);
+
     }
 
     const providerText = await response.text();
