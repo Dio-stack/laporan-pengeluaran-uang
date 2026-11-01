@@ -224,12 +224,17 @@
         </div>
 
         <div class="receipt-demo" id="receipt-demo" hidden>
-          <label class="receipt-upload" for="receipt-image">
+          <div class="receipt-upload">
             <span class="receipt-upload-icon" aria-hidden="true">⌁</span>
-            <strong>Pilih atau foto struk</strong>
-            <span>Gunakan foto yang terang, lurus, dan tidak terpotong</span>
-          </label>
-          <input id="receipt-image" type="file" accept="image/*" capture="environment" hidden />
+            <strong>Tambahkan foto struk</strong>
+            <span>Pilih dari folder atau ambil dengan kamera</span>
+            <div class="receipt-actions">
+              <label class="btn-secondary" for="receipt-image">Pilih folder</label>
+              <button class="btn-secondary" type="button" id="receipt-open-camera">Buka kamera</button>
+            </div>
+          </div>
+          <input id="receipt-image" type="file" accept="image/*" hidden />
+          <input id="receipt-camera" type="file" accept="image/*" capture="environment" hidden />
 
           <div class="receipt-preview-row" id="receipt-preview-row" hidden>
             <img id="receipt-preview" class="receipt-preview" alt="Preview struk yang dipilih" />

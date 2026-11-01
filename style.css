@@ -570,7 +570,15 @@ body {
 }
 
 .receipt-upload strong { color: var(--text); }
-.receipt-upload span:last-child { font-size: 12px; }
+.receipt-upload > span:nth-last-of-type(1) { font-size: 12px; }
+.receipt-upload .receipt-actions { width: min(360px, 100%); margin-top: 8px; }
+.receipt-upload label.btn-secondary {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+}
 
 .receipt-preview-row {
   display: grid;

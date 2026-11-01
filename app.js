@@ -924,6 +924,7 @@ function resetReceiptScanner() {
 
   const input = document.getElementById('receipt-image');
   input.value = '';
+  document.getElementById('receipt-camera').value = '';
   document.getElementById('receipt-preview').removeAttribute('src');
   document.getElementById('receipt-preview-row').hidden = true;
   document.getElementById('receipt-progress').hidden = true;
@@ -998,7 +999,7 @@ async function scanReceiptDemo() {
     if (scanGeneration !== receiptScanGeneration) return;
     progressBar.style.width = '70%';
     progressValue.textContent = '70%';
-    progressLabel.textContent = 'AI sedang membaca struk...';
+    progressLabel.textContent = 'sabar yaa masih scannning struk...';
     try {
       const result = await analyzeReceiptWithAI(imageBase64, 'image/jpeg');
       if (scanGeneration !== receiptScanGeneration) return;
@@ -1107,6 +1108,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('change-password-form').addEventListener('submit', changeGatePassword);
   document.getElementById('receipt-demo-toggle').addEventListener('click', toggleReceiptDemo);
   document.getElementById('receipt-image').addEventListener('change', selectReceiptImage);
+  document.getElementById('receipt-camera').addEventListener('change', selectReceiptImage);
+  document.getElementById('receipt-open-camera').addEventListener('click', () => {
+    document.getElementById('receipt-camera').click();
+  });
   document.getElementById('receipt-process').addEventListener('click', scanReceiptDemo);
   document.getElementById('receipt-cancel-preview').addEventListener('click', resetReceiptScanner);
   document.getElementById('receipt-cancel-progress').addEventListener('click', resetReceiptScanner);
