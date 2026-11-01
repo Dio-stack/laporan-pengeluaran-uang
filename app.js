@@ -371,7 +371,7 @@ async function loginWithPasskey() {
     if (sessionError || !sessionData.session?.user) {
       document.getElementById('gate-username').value = config.username;
       document.getElementById('gate-error').textContent =
-        'Sesi Supabase sudah berakhir. Masukkan password akun ini agar data kembali dimuat.';
+        'Sesi shortcut login sudah berakhir. Masukkan password akun ini agar datamu kembali.';
       showAccessGate();
       return;
     }
