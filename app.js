@@ -841,6 +841,7 @@ async function completeAuthLogin() {
 
 let receiptDemoFile = null;
 let receiptPreviewUrl = '';
+let receiptScanGeneration = 0;
 
 function normalizeReceiptAmount(value) {
   const digits = String(value).replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
@@ -948,11 +949,38 @@ function selectReceiptImage(event) {
     return;
   }
   receiptDemoFile = file;
+  receiptScanGeneration += 1;
   if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
   receiptPreviewUrl = URL.createObjectURL(file);
   document.getElementById('receipt-preview').src = receiptPreviewUrl;
   document.getElementById('receipt-preview-row').hidden = false;
   document.getElementById('receipt-results').hidden = true;
+}
+
+function resetReceiptScanner() {
+  receiptScanGeneration += 1;
+  receiptDemoFile = null;
+  if (receiptPreviewUrl) {
+    URL.revokeObjectURL(receiptPreviewUrl);
+    receiptPreviewUrl = '';
+  }
+
+  const input = document.getElementById('receipt-image');
+  input.value = '';
+  document.getElementById('receipt-preview').removeAttribute('src');
+  document.getElementById('receipt-preview-row').hidden = true;
+  document.getElementById('receipt-progress').hidden = true;
+  document.getElementById('receipt-progress-bar').style.width = '0%';
+  document.getElementById('receipt-progress-value').textContent = '0%';
+  document.getElementById('receipt-results').hidden = true;
+  document.getElementById('receipt-process').disabled = false;
+  document.getElementById('receipt-result-date').value = '';
+  document.getElementById('receipt-result-name').value = '';
+  document.getElementById('receipt-result-category').value = '';
+  document.getElementById('receipt-result-category').dataset.value = '';
+  document.getElementById('receipt-result-amount').value = '';
+  document.getElementById('receipt-raw-text').textContent = '';
+  showToast('Foto dibatalkan', 'Silakan pilih foto struk lain untuk mulai ulang.', 'success');
 }
 
 function receiptBlobToBase64(blob) {
@@ -992,6 +1020,7 @@ async function prepareReceiptImage(file) {
 
 async function scanReceiptDemo() {
   if (!receiptDemoFile) return;
+  const scanGeneration = ++receiptScanGeneration;
 
   const progress = document.getElementById('receipt-progress');
   const progressBar = document.getElementById('receipt-progress-bar');
@@ -1009,11 +1038,13 @@ async function scanReceiptDemo() {
     const preparedImage = await prepareReceiptImage(receiptDemoFile);
     if (!preparedImage) throw new Error('Foto tidak dapat diproses oleh browser ini.');
     const imageBase64 = await receiptBlobToBase64(preparedImage);
+    if (scanGeneration !== receiptScanGeneration) return;
     progressBar.style.width = '70%';
     progressValue.textContent = '70%';
     progressLabel.textContent = 'AI sedang membaca struk...';
     try {
       const result = await analyzeReceiptWithAI(imageBase64, 'image/jpeg');
+      if (scanGeneration !== receiptScanGeneration) return;
       console.log(result);
       document.getElementById('receipt-raw-text').textContent = result.rawText || '(AI membaca data tanpa teks mentah terpisah)';
       document.getElementById('receipt-result-date').value = result.date || todayStr();
@@ -1025,6 +1056,7 @@ async function scanReceiptDemo() {
       progressBar.style.width = '100%';
       progressValue.textContent = '100%';
     } catch (classificationError) {
+      if (scanGeneration !== receiptScanGeneration) return;
       console.error('Gagal klasifikasi AI:', classificationError);
       document.getElementById('receipt-result-category').value = 'AI belum tersedia';
       document.getElementById('receipt-result-category').dataset.value = '';
@@ -1033,6 +1065,7 @@ async function scanReceiptDemo() {
     }
     showToast('Scan selesai', 'Kategori sudah dideteksi AI. Periksa hasil sebelum disimpan.', 'success');
   } catch (error) {
+    if (scanGeneration !== receiptScanGeneration) return;
     console.error('Gagal scan struk:', error);
     showToast('Scan gagal', error.message || 'Struk belum berhasil dibaca.', 'error');
   } finally {
@@ -1119,6 +1152,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('receipt-demo-toggle').addEventListener('click', toggleReceiptDemo);
   document.getElementById('receipt-image').addEventListener('change', selectReceiptImage);
   document.getElementById('receipt-process').addEventListener('click', scanReceiptDemo);
+  document.getElementById('receipt-cancel-preview').addEventListener('click', resetReceiptScanner);
+  document.getElementById('receipt-cancel-progress').addEventListener('click', resetReceiptScanner);
+  document.getElementById('receipt-cancel-result').addEventListener('click', resetReceiptScanner);
   document.getElementById('receipt-fill-form').addEventListener('click', fillExpenseFromReceipt);
   document.getElementById('receipt-save').addEventListener('click', saveReceiptToSupabase);
   document.querySelectorAll('.password-toggle').forEach(button => {

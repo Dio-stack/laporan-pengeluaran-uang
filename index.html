@@ -234,11 +234,13 @@
           <div class="receipt-preview-row" id="receipt-preview-row" hidden>
             <img id="receipt-preview" class="receipt-preview" alt="Preview struk yang dipilih" />
             <button class="btn-secondary" type="button" id="receipt-process">Scan struk</button>
+            <button class="btn-secondary" type="button" id="receipt-cancel-preview">Batal / scan ulang</button>
           </div>
 
           <div class="receipt-progress" id="receipt-progress" hidden>
             <div><span id="receipt-progress-label">proses scan</span><strong id="receipt-progress-value">0%</strong></div>
             <div class="receipt-progress-track"><span id="receipt-progress-bar"></span></div>
+            <button class="btn-secondary" type="button" id="receipt-cancel-progress">Batal</button>
           </div>
 
           <div class="receipt-results" id="receipt-results" hidden>
@@ -267,7 +269,9 @@
             <div class="receipt-actions">
               <button class="btn-secondary" type="button" id="receipt-fill-form">Isi ke form</button>
               <button class="btn-primary" type="button" id="receipt-save">Simpan ke transaksi</button>
+              <button class="btn-secondary" type="button" id="receipt-cancel-result">Batal / scan ulang</button>
             </div>
+          </div>
           </div>
         </div>
       </div>
