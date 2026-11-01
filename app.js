@@ -1224,7 +1224,14 @@ function getCurrentOwner() {
 
 function initSupabase() {
   if (!isSupabaseConfigured() || supabaseClient) return Boolean(supabaseClient);
-  supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+  supabaseClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, {
+    auth: {
+      storage: window.localStorage,
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  });
   return true;
 }
 
