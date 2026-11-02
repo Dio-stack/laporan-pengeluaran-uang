@@ -21,7 +21,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
     if (!image) throw new Error('Foto struk belum dikirim.');
 
     // 1. Cek kunci Gemini resmi (Google AI Studio) terlebih dahulu
-    const geminiKey = customApiKey || Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY');
+    const geminiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY');
     const apinexKey = Deno.env.get('APINEX_API_KEY');
 
     if (!geminiKey && !apinexKey) {
@@ -32,66 +32,65 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
     // A. Gunakan Google Gemini API Resmi jika tersedia
     if (geminiKey) {
-      const geminiModel = Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash';
+      const configuredModel = Deno.env.get('GEMINI_MODEL');
+      const candidateModels = Array.from(new Set([configuredModel, 'gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'].filter(Boolean))) as string[];
       const promptText = 'Baca foto struk secara langsung. Ekstrak tanggal format YYYY-MM-DD, nama toko/transaksi, nominal total angka tanpa Rp, kategori salah satu: makanan, transport, hiburan, belanja, kesehatan, lainnya, dan seluruh teks penting yang terbaca pada struk. rawText wajib berisi teks hasil bacaan, bukan ringkasan. Toko seperti Indomaret, Alfamart, supermarket, minimarket = belanja. Jawab JSON hanya dengan keys date, name, amount, category, rawText.';
 
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`;
-      
-      const geminiRes = await fetch(geminiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: {
-            parts: [{ text: promptText }],
-          },
-          contents: [
-            {
-              parts: [
-                { text: 'Analisis struk pada gambar ini.' },
-                {
-                  inlineData: {
-                    mimeType,
-                    data: image,
-                  },
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0,
-            responseMimeType: 'application/json',
-          },
-        }),
-      });
-
-      if (!geminiRes.ok) {
-        const errorText = await geminiRes.text();
-        // Jika model 2.5-flash belum tersedia, coba fallback ke 1.5-flash
-        if (geminiRes.status === 404 && geminiModel !== 'gemini-1.5-flash') {
-          const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
-          const fallbackRes = await fetch(fallbackUrl, {
+      let lastError = '';
+      for (const modelName of candidateModels) {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
+        try {
+          const geminiRes = await fetch(geminiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              systemInstruction: { parts: [{ text: promptText }] },
-              contents: [{ parts: [{ text: 'Analisis struk ini.' }, { inlineData: { mimeType, data: image } }] }],
-              generationConfig: { temperature: 0, responseMimeType: 'application/json' },
+              systemInstruction: {
+                parts: [{ text: promptText }],
+              },
+              contents: [
+                {
+                  parts: [
+                    { text: 'Analisis struk pada gambar ini.' },
+                    {
+                      inlineData: {
+                        mimeType,
+                        data: image,
+                      },
+                    },
+                  ],
+                },
+              ],
+              generationConfig: {
+                temperature: 0,
+                responseMimeType: 'application/json',
+              },
             }),
           });
-          if (fallbackRes.ok) {
-            const fbData = await fallbackRes.json();
-            const rawContent = fbData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+
+          if (geminiRes.ok) {
+            const geminiData = await geminiRes.json();
+            const rawContent = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
             parsed = JSON.parse(rawContent);
+            break;
           } else {
-            throw new Error(`Google Gemini API error (${geminiRes.status}): ${errorText.slice(0, 300)}`);
+            const errorText = await geminiRes.text();
+            lastError = `Google Gemini API error (${geminiRes.status}) on model ${modelName}: ${errorText.slice(0, 300)}`;
+            // Jika 404 (model not found / deprecated for user), lanjut ke model berikutnya
+            if (geminiRes.status === 404) {
+              continue;
+            }
+            throw new Error(lastError);
           }
-        } else {
-          throw new Error(`Google Gemini API error (${geminiRes.status}): ${errorText.slice(0, 300)}`);
+        } catch (fetchErr: any) {
+          lastError = fetchErr.message || String(fetchErr);
+          if (fetchErr.message && !fetchErr.message.includes('404')) {
+            throw fetchErr;
+          }
         }
-      } else {
-        const geminiData = await geminiRes.json();
-        const rawContent = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-        parsed = JSON.parse(rawContent);
+      }
+
+      if (!parsed) {
+        throw new Error(lastError || 'Semua model Google Gemini yang dicoba tidak merespons.');
       }
     } 
     // B. Fallback ke Apinex jika Gemini API key belum ada
