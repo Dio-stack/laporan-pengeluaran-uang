@@ -546,26 +546,6 @@
         <p class="setting-desc">ini adalah batas untuk kamu memberikan jika kamu mau memberikan batasan untuk pengeluaran bulanan kamu sayangg</p>
       </div>
 
-      <h2 class="settings-section-title">Integrasi AI Scanner (Google Gemini)</h2>
-
-      <div class="card settings-gemini-card">
-        <details class="settings-details">
-          <summary>
-            <span>Google Gemini API (Resmi)</span>
-            <span class="settings-detail-status" id="gemini-setting-status">Default Sistem</span>
-          </summary>
-          <p class="setting-desc">Scanner struk kini diprioritaskan menggunakan <strong>Google Gemini API resmi</strong> (model <code>gemini-2.5-flash</code>). Kamu bisa memasukkan API Key pribadi dari <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:underline;font-weight:600">Google AI Studio (Gratis)</a> agar scanner tidak bergantung kuota eksternal.</p>
-          <div class="setting-row" style="margin-top:14px;align-items:flex-end">
-            <div class="form-group" style="flex:1;min-width:240px">
-              <label for="gemini-custom-key">Google Gemini API Key</label>
-              <input type="password" id="gemini-custom-key" placeholder="AIzaSy..." autocomplete="off" />
-            </div>
-            <button class="btn-primary" type="button" onclick="saveCustomGeminiKey()">Simpan Kunci</button>
-            <button class="btn-danger" id="gemini-remove-key" type="button" onclick="removeCustomGeminiKey()" style="display:none">Hapus</button>
-          </div>
-          <p class="setting-desc" id="gemini-key-message" style="margin-top:8px;font-size:12px;color:var(--green)"></p>
-        </details>
-      </div>
 
       <h2 class="settings-section-title settings-data-title">Data</h2>
 
