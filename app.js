@@ -224,12 +224,30 @@ async function registerPasskey() {
   const status = document.getElementById('passkey-setting-message');
   const button = document.getElementById('passkey-enable');
   button.disabled = true;
-  status.textContent = 'Menyiapkan passkey...';
+  status.textContent = 'Menyiapkan pendaftaran perangkat...';
 
   try {
     const rpId = getPasskeyOriginError();
     const config = getAccessConfig();
-    if (!config) throw new Error('Atur password terlebih dahulu sebelum menambahkan passkey.');
+    if (!config || !config.username) throw new Error('Login terlebih dahulu sebelum mendaftarkan perangkat.');
+
+    // Verifikasi kata sandi akun untuk mengikat kredensial Supabase ke Face ID/Passkey
+    let confirmPass = document.getElementById('passkey-confirm-pass')?.value || '';
+    if (!confirmPass) {
+      confirmPass = prompt('Masukkan kata sandi akunmu untuk mengonfirmasi aktivasi Face ID / Passkey:') || '';
+    }
+    if (!confirmPass) {
+      throw new Error('Kata sandi akun diperlukan agar Face ID dapat login dan memuat datamu secara otomatis.');
+    }
+
+    if (initSupabase()) {
+      const email = `${config.username.toLowerCase()}@dompetku.app`;
+      const verifyRes = await supabaseClient.auth.signInWithPassword({ email, password: confirmPass });
+      if (verifyRes.error) {
+        throw new Error('Kata sandi yang dimasukkan belum cocok dengan akun ini.');
+      }
+    }
+
     const challenge = crypto.getRandomValues(new Uint8Array(32));
     const userId = crypto.getRandomValues(new Uint8Array(16));
     const credential = await navigator.credentials.create({
@@ -275,13 +293,19 @@ async function registerPasskey() {
       publicKey: bytesToBase64Url(new Uint8Array(publicKey)),
       algorithm,
       rpId,
+      authSecret: btoa(confirmPass),
       createdAt: new Date().toISOString(),
     };
     localStorage.setItem(ACCESS_KEY, JSON.stringify(config));
+    
+    // Reset input password konfirmasi
+    const passInput = document.getElementById('passkey-confirm-pass');
+    if (passInput) passInput.value = '';
+
     updatePasskeySettings();
     setGateMode(false);
-    status.textContent = 'Perangkat berhasil terdaftar dan siap digunakan untuk login.';
-    showToast('Perangkat terdaftar', 'Login perangkat berhasil diaktifkan.', 'success');
+    status.textContent = 'Perangkat (Face ID) berhasil terdaftar! Sekarang kamu bisa login otomatis dan datamu akan langsung sinkron.';
+    showToast('Face ID / Passkey Aktif', 'Perangkat berhasil didaftarkan. Data catatanmu akan selalu muncul saat login.', 'success');
   } catch (error) {
     status.textContent = error.name === 'NotAllowedError'
       ? 'Pendaftaran dibatalkan. Belum ada perangkat yang ditambahkan.'
@@ -360,36 +384,57 @@ async function loginWithPasskey() {
       signedData,
     );
     if (!verified) {
-      throw new Error('Passkey perangkat ini tidak cocok dengan data pendaftaran. Pastikan memakai browser dan alamat website yang sama, atau hapus lalu daftarkan ulang passkey.');
+      throw new Error('Passkey perangkat ini tidak cocok dengan data pendaftaran.');
     }
 
     if (!initSupabase()) {
-      throw new Error('Konfigurasi Supabase belum tersedia. Login dengan password tidak dapat diproses.');
+      throw new Error('Konfigurasi Supabase belum tersedia.');
     }
 
-    const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
-    if (sessionError || !sessionData.session?.user) {
+    let authenticatedUser = null;
+
+    // 1. Prioritaskan autentikasi penuh ke Supabase dengan authSecret yang tersimpan
+    if (config.passkey?.authSecret) {
+      try {
+        const storedPassword = atob(config.passkey.authSecret);
+        const email = `${config.username.toLowerCase()}@dompetku.app`;
+        const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
+          email,
+          password: storedPassword,
+        });
+        if (!authError && authData.session?.user) {
+          authenticatedUser = authData.session.user;
+        }
+      } catch (authErr) {
+        console.warn('Gagal login via authSecret:', authErr);
+      }
+    }
+
+    // 2. Jika tidak ada authSecret, periksa sesi yang sedang aktif
+    if (!authenticatedUser) {
+      const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
+      if (!sessionError && sessionData.session?.user) {
+        const sessionUsername = String(sessionData.session.user.user_metadata?.username || '').trim().toLowerCase();
+        if (!sessionUsername || sessionUsername === config.username.toLowerCase()) {
+          authenticatedUser = sessionData.session.user;
+        }
+      }
+    }
+
+    if (!authenticatedUser) {
       document.getElementById('gate-username').value = config.username;
       document.getElementById('gate-error').textContent =
-        'Sesi shortcut login sudah berakhir. Masukkan password akun ini agar datamu kembali.';
+        'Sesi shortcut login sudah berakhir. Masukkan password akun ini sekali agar Face ID tersinkron kembali.';
       showAccessGate();
       return;
     }
 
-    const sessionUsername = String(sessionData.session.user.user_metadata?.username || '')
-      .trim()
-      .toLowerCase();
-    if (sessionUsername && sessionUsername !== config.username) {
-      await supabaseClient.auth.signOut({ scope: 'local' });
-      throw new Error(`Sesi perangkat aktif milik akun "${sessionUsername}". Login dengan password akun "${config.username}" terlebih dahulu.`);
-    }
-
     sessionStorage.setItem(ACCESS_SESSION_KEY, 'true');
-    currentOwner = sessionData.session.user.id;
-    await saveAuthProfile(sessionData.session.user);
+    currentOwner = authenticatedUser.id;
+    await saveAuthProfile(authenticatedUser);
     await loadSupabaseData();
     openAppGate(false);
-    showToast('Login berhasil', 'Verifikasi passkey berhasil.', 'success');
+    showToast('Login berhasil', `Halo ${config.username}, selamat datang kembali! ♡`, 'success');
   } catch (failure) {
     error.textContent = failure.name === 'NotAllowedError'
       ? 'Passkey dibatalkan atau tidak tersedia. Kamu tetap bisa login dengan password.'
@@ -402,6 +447,7 @@ function updatePasskeySettings() {
   const supportError = getPasskeySupportError();
   const enableButton = document.getElementById('passkey-enable');
   const removeButton = document.getElementById('passkey-remove');
+  const passConfirmWrap = document.getElementById('passkey-pass-confirm-wrap');
   const status = document.getElementById('passkey-setting-status');
   const details = document.getElementById('passkey-setting-details');
   const message = document.getElementById('passkey-setting-message');
@@ -409,6 +455,7 @@ function updatePasskeySettings() {
   enableButton.hidden = hasPasskey;
   enableButton.disabled = Boolean(supportError);
   removeButton.hidden = !hasPasskey;
+  if (passConfirmWrap) passConfirmWrap.style.display = hasPasskey ? 'none' : '';
   actionRow.classList.toggle('has-passkey', hasPasskey);
   status.textContent = hasPasskey ? 'Sudah terdaftar' : 'Belum terdaftar';
   status.dataset.state = hasPasskey ? 'active' : 'inactive';
@@ -417,14 +464,14 @@ function updatePasskeySettings() {
     message.textContent = supportError;
   }
   if (!supportError && !hasPasskey && !message.textContent) {
-    message.textContent = 'Belum ada perangkat yang terdaftar. Tekan “Daftarkan perangkat” untuk mulai.';
+    message.textContent = 'Belum ada perangkat yang terdaftar. Masukkan password lalu tekan “Daftarkan perangkat” untuk mulai.';
   }
   if (hasPasskey) {
     const createdAt = getAccessConfig().passkey.createdAt;
     const createdDate = createdAt
       ? new Date(createdAt).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })
       : 'Tanggal tidak tersedia';
-    details.textContent = `Perangkat ini terdaftar sejak ${createdDate}. Data wajah atau sidik jari tidak dibagikan ke website.`;
+    details.textContent = `Perangkat ini terdaftar sejak ${createdDate}. Login Face ID akan langsung memuat seluruh data akunmu.`;
   }
 }
 
@@ -758,7 +805,12 @@ async function handleGateSubmit(event) {
       throw new Error('Username atau password belum cocok, atau akun belum terdaftar. Jika sudah terdaftar, jangan tekan Buat Akun berulang kali.');
     }
 
-    localStorage.setItem(ACCESS_KEY, JSON.stringify({ username: normalizedUsername }));
+    const existingConfig = getAccessConfig() || {};
+    existingConfig.username = normalizedUsername;
+    if (existingConfig.passkey) {
+      existingConfig.passkey.authSecret = btoa(password);
+    }
+    localStorage.setItem(ACCESS_KEY, JSON.stringify(existingConfig));
     sessionStorage.setItem(ACCESS_SESSION_KEY, 'true');
     await completeAuthLogin();
   } catch (failure) {
@@ -841,7 +893,12 @@ async function changeGatePassword(event) {
     });
     await supabaseClient.auth.signOut();
     sessionStorage.removeItem(ACCESS_SESSION_KEY);
-    localStorage.setItem(ACCESS_KEY, JSON.stringify({ username }));
+    const existingConfig = getAccessConfig() || {};
+    existingConfig.username = username;
+    if (existingConfig.passkey) {
+      existingConfig.passkey.authSecret = btoa(newPassword);
+    }
+    localStorage.setItem(ACCESS_KEY, JSON.stringify(existingConfig));
     document.getElementById('gate-form').reset();
     document.getElementById('gate-username').value = username;
     document.getElementById('gate-password').value = '';
@@ -1423,23 +1480,62 @@ async function loadSupabaseData() {
   if (!currentOwner) return;
   isLoadingData = true;
 
+  const activeUsername = String(userData.user.user_metadata?.username || getAccessConfig()?.username || '').trim().toLowerCase();
+
   try {
+    // 1. Klaim otomatis jika ada data yang sebelumnya tersimpan dengan username
+    if (activeUsername) {
+      try {
+        await supabaseClient
+          .from('expenses')
+          .update({ owner_id: currentOwner })
+          .or(`owner_key.eq.${activeUsername},owner_key.eq.${currentOwner}`)
+          .is('owner_id', null);
+      } catch (claimErr) {
+        console.warn('Auto-claim expense tidak dapat dijalankan:', claimErr);
+      }
+    }
+
+    // 2. Migrasikan data lokal ke Supabase jika ada
     await migrateLocalEntries();
-    const { data, error } = await supabaseClient
+
+    // 3. Ambil data: periksa owner_id ATAU owner_key agar data lama tidak hilang
+    let query = supabaseClient
       .from('expenses')
       .select('id, expense_date, name, category, amount')
-      .eq('owner_id', currentOwner)
       .order('expense_date', { ascending: false });
+
+    if (activeUsername) {
+      query = query.or(`owner_id.eq.${currentOwner},owner_key.eq.${currentOwner},owner_key.eq.${activeUsername}`);
+    } else {
+      query = query.eq('owner_id', currentOwner);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
     entries = (data || []).map(mapExpense);
+
+    // Simpan cache lokal per user agar saat koneksi lambat data tetap tampil
+    if (activeUsername) {
+      localStorage.setItem(`dompetku_cache_${activeUsername}`, JSON.stringify(entries));
+    }
+
     await loadLimit();
     renderAll();
   } catch (error) {
-    console.error(error);
-    entries = [];
-    limit = 0;
+    console.error('Gagal memuat data dari Supabase:', error);
+    if (activeUsername) {
+      const cached = localStorage.getItem(`dompetku_cache_${activeUsername}`);
+      if (cached) {
+        try {
+          entries = JSON.parse(cached);
+        } catch (_) {
+          entries = [];
+        }
+      }
+    }
     renderAll();
-    showToast('Database belum terhubung', error.message || 'Data ditampilkan dari penyimpanan browser.', 'warn');
+    showToast('Mode Offline', 'Menampilkan data terakhir yang tersimpan di perangkat ini.', 'warn');
   } finally {
     isLoadingData = false;
   }
@@ -1479,13 +1575,23 @@ async function migrateLocalEntries() {
 }
 
 async function loadLimit() {
-  const { data, error } = await supabaseClient
+  const activeUsername = String(getAccessConfig()?.username || '').trim().toLowerCase();
+  let query = supabaseClient
     .from('expense_limits')
     .select('amount')
-    .eq('owner_id', currentOwner)
-    .eq('month_key', activeMonth)
-    .maybeSingle();
-  if (error) throw error;
+    .eq('month_key', activeMonth);
+
+  if (activeUsername) {
+    query = query.or(`owner_id.eq.${currentOwner},owner_key.eq.${currentOwner},owner_key.eq.${activeUsername}`);
+  } else {
+    query = query.eq('owner_id', currentOwner);
+  }
+
+  const { data, error } = await query.maybeSingle();
+  if (error) {
+    console.warn('Gagal memuat batas pengeluaran:', error);
+    return;
+  }
   limit = Number(data?.amount || 0);
   document.getElementById('limit-input').value = limit > 0 ? limit : '';
 }

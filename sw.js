@@ -1,4 +1,4 @@
-const CACHE_NAME = 'anggun-report-v1';
+const CACHE_NAME = 'anggun-report-v2';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -6,8 +6,10 @@ const STATIC_ASSETS = [
   './app.js',
   './supabase-config.js',
   './manifest.json',
-  './images/icon-192.svg',
-  './images/icon-512.svg',
+  './apple-touch-icon.png',
+  './images/apple-touch-icon.png',
+  './images/icon-192.png',
+  './images/icon-512.png',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
 ];
