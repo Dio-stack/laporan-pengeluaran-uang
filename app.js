@@ -578,6 +578,22 @@ async function handleResetCredentialsSubmit(event) {
     config.salt = bytesToHex(salt);
     config.verifier = await hashGatePassword(password, salt);
     localStorage.setItem(ACCESS_KEY, JSON.stringify(config));
+
+    // Sinkronisasi pembaruan password ke Supabase Auth melalui Edge Function
+    let cloudSynced = false;
+    if (initSupabase()) {
+      try {
+        const { data: resetRes, error: resetErr } = await supabaseClient.functions.invoke('reset-password', {
+          body: { username, newPassword: password },
+        });
+        if (!resetErr && resetRes?.success) {
+          cloudSynced = true;
+        }
+      } catch (e) {
+        console.warn('Fungsi reset-password belum aktif di Supabase:', e);
+      }
+    }
+
     document.getElementById('reset-credentials-form').reset();
     updateRecoverySettings();
     sessionStorage.removeItem(ACCESS_SESSION_KEY);
@@ -591,7 +607,12 @@ async function handleResetCredentialsSubmit(event) {
     document.getElementById('gate-copy').textContent = 'Username dan password berhasil diperbarui. Silakan login seperti biasa.';
     document.getElementById('gate-password').focus();
     showAccessGate();
-    showToast('Akun diperbarui', 'Silakan login dengan username dan password baru. Kode pemulihan tetap bisa digunakan.', 'success');
+    
+    if (cloudSynced) {
+      showToast('Akun & Database Diperbarui', 'Kata sandi berhasil diperbarui baik di browser maupun di Supabase Cloud.', 'success');
+    } else {
+      showToast('Akun Diperbarui', 'Kata sandi lokal berhasil diperbarui. Silakan login.', 'success');
+    }
   } catch (failure) {
     error.textContent = failure.message || 'Username dan password baru gagal disimpan.';
   }
@@ -680,6 +701,9 @@ async function handleGateSubmit(event) {
             if (authResult.error.status === 429 || migrationMessage.includes('too many requests')) {
               localStorage.setItem(AUTH_COOLDOWN_KEY, String(Date.now() + 60000));
               throw new Error('Terlalu banyak percobaan signup. Tunggu 60 detik lalu coba sekali lagi.');
+            }
+            if (migrationMessage.includes('already registered') || migrationMessage.includes('already exists')) {
+              throw new Error('Password lokal cocok, namun akun Supabase masih menggunakan kata sandi sebelumnya. Silakan login menggunakan kata sandi akun Supabase sebelumnya atau gunakan fungsi ubah kata sandi.');
             }
             throw authResult.error;
           }
@@ -876,12 +900,133 @@ const RECEIPT_CATEGORIES = {
   lainnya: 'Lainnya',
 };
 
+const GEMINI_KEY_STORAGE = 'dompetku_gemini_api_key';
+
+function loadGeminiSetting() {
+  const statusEl = document.getElementById('gemini-setting-status');
+  const inputEl = document.getElementById('gemini-custom-key');
+  const removeBtn = document.getElementById('gemini-remove-key');
+  const key = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
+
+  if (inputEl) inputEl.value = key ? '••••••••••••••••••••' : '';
+  if (statusEl) {
+    statusEl.textContent = key ? 'API Key Pribadi Aktif' : 'Default Sistem';
+  }
+  if (removeBtn) {
+    removeBtn.style.display = key ? '' : 'none';
+  }
+}
+
+function saveCustomGeminiKey() {
+  const inputEl = document.getElementById('gemini-custom-key');
+  const msgEl = document.getElementById('gemini-key-message');
+  const val = inputEl ? inputEl.value.trim() : '';
+
+  if (!val || val.includes('••••')) {
+    showToast('Periksa Kunci', 'Masukkan Google Gemini API Key yang valid dari Google AI Studio.', 'warn');
+    return;
+  }
+
+  localStorage.setItem(GEMINI_KEY_STORAGE, val);
+  loadGeminiSetting();
+  if (msgEl) msgEl.textContent = 'Google Gemini API key berhasil disimpan dan langsung aktif untuk scanner.';
+  showToast('API Key Disimpan', 'Google Gemini API resmi siap digunakan untuk scan struk.', 'success');
+}
+
+function removeCustomGeminiKey() {
+  localStorage.removeItem(GEMINI_KEY_STORAGE);
+  loadGeminiSetting();
+  const inputEl = document.getElementById('gemini-custom-key');
+  const msgEl = document.getElementById('gemini-key-message');
+  if (inputEl) inputEl.value = '';
+  if (msgEl) msgEl.textContent = 'API key pribadi dihapus. Scanner kembali menggunakan konfigurasi server Supabase.';
+  showToast('API Key Dihapus', 'Kembali ke konfigurasi default sistem.', 'info');
+}
+
+async function analyzeReceiptDirectGemini(imageBase64, mimeType, apiKey) {
+  const promptText = 'Baca foto struk secara langsung. Ekstrak tanggal format YYYY-MM-DD, nama toko/transaksi, nominal total angka tanpa Rp, kategori salah satu: makanan, transport, hiburan, belanja, kesehatan, lainnya, dan seluruh teks penting yang terbaca pada struk. rawText wajib berisi teks hasil bacaan, bukan ringkasan. Toko seperti Indomaret, Alfamart, supermarket, minimarket = belanja. Jawab JSON hanya dengan keys date, name, amount, category, rawText.';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: promptText }] },
+      contents: [{
+        parts: [
+          { text: 'Analisis struk pada gambar ini.' },
+          { inlineData: { mimeType, data: imageBase64 } }
+        ]
+      }],
+      generationConfig: { temperature: 0, responseMimeType: 'application/json' }
+    })
+  });
+
+  if (!res.ok) {
+    // fallback ke 1.5-flash jika model 2.5 belum aktif
+    if (res.status === 404) {
+      const fbUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const fbRes = await fetch(fbUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: promptText }] },
+          contents: [{ parts: [{ text: 'Analisis struk ini.' }, { inlineData: { mimeType, data: imageBase64 } }] }],
+          generationConfig: { temperature: 0, responseMimeType: 'application/json' }
+        })
+      });
+      if (!fbRes.ok) throw new Error(`Google Gemini API error: ${await fbRes.text()}`);
+      const fbData = await fbRes.json();
+      const rawText = fbData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+      const parsed = JSON.parse(rawText);
+      const cat = String(parsed.category || 'lainnya').toLowerCase().trim();
+      return {
+        date: parsed.date || '',
+        name: String(parsed.name || '').slice(0, 60),
+        amount: Number(String(parsed.amount || 0).replace(/[^0-9]/g, '')),
+        category: RECEIPT_CATEGORIES[cat] ? cat : 'lainnya',
+        rawText: String(parsed.rawText || '')
+      };
+    }
+    const errText = await res.text();
+    throw new Error(`Google Gemini direct error (${res.status}): ${errText.slice(0, 200)}`);
+  }
+
+  const data = await res.json();
+  const rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  const parsed = JSON.parse(rawContent);
+  const cat = String(parsed.category || 'lainnya').toLowerCase().trim();
+  return {
+    date: parsed.date || '',
+    name: String(parsed.name || '').slice(0, 60),
+    amount: Number(String(parsed.amount || 0).replace(/[^0-9]/g, '')),
+    category: RECEIPT_CATEGORIES[cat] ? cat : 'lainnya',
+    rawText: String(parsed.rawText || '')
+  };
+}
+
 async function analyzeReceiptWithAI(imageBase64, mimeType) {
+  const customKey = localStorage.getItem(GEMINI_KEY_STORAGE) || '';
+
+  // 1. Jika pengguna telah menyetel Google Gemini API Key pribadi, prioritaskan akses langsung
+  if (customKey) {
+    try {
+      return await analyzeReceiptDirectGemini(imageBase64, mimeType, customKey);
+    } catch (directError) {
+      console.warn('Gagal panggil Gemini direct, mencoba lewat Supabase Edge Function...', directError);
+    }
+  }
+
   if (!initSupabase()) throw new Error('Supabase belum dikonfigurasi.');
   const { data, error } = await supabaseClient.functions.invoke('classify-expense', {
-    body: { imageBase64, mimeType },
+    body: { imageBase64, mimeType, customApiKey: customKey },
   });
+
   if (error) {
+    // Jika Edge Function gagal namun custom key tersedia, coba panggil langsung
+    if (customKey) {
+      return await analyzeReceiptDirectGemini(imageBase64, mimeType, customKey);
+    }
+
     let providerMessage = error.message || 'Edge Function gagal dipanggil.';
     let providerStatus = error.context?.status;
     if (typeof error.context?.json === 'function') {
@@ -898,10 +1043,10 @@ async function analyzeReceiptWithAI(imageBase64, mimeType) {
       || normalizedMessage.includes('daily free token allowance')
       || normalizedMessage.includes('daily check-in required')
       || normalizedMessage.includes('quota') && normalizedMessage.includes('free')) {
-      throw new Error('Kuota harian AI gratis Apinex sudah habis. Silakan tunggu reset harian, lakukan check-in, atau tambahkan kredit.');
+      throw new Error('Kuota harian AI gratis habis. Kamu bisa memasukkan Gemini API Key sendiri di menu Pengaturan.');
     }
     if (providerStatus === 401 || providerStatus === 403 || providerMessage.includes('menolak API key')) {
-      throw new Error('Klasifikasi AI ditolak oleh provider. API key atau model perlu diperiksa.');
+      throw new Error('Klasifikasi AI ditolak oleh provider. Periksa API Key di Pengaturan atau konfigurasi Supabase.');
     }
     throw new Error(providerMessage);
   }
@@ -1173,6 +1318,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   updatePasskeySettings();
   updateRecoverySettings();
+  loadGeminiSetting();
+
+  // Daftarkan Service Worker untuk kapabilitas PWA (offline & installable app)
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    navigator.serviceWorker.register('./sw.js').catch(swErr => {
+      console.warn('PWA Service Worker tidak dapat didaftarkan:', swErr);
+    });
+  }
 
   // Set tanggal default form ke hari ini
   document.getElementById('inp-date').value = todayStr();
@@ -1730,17 +1883,79 @@ function renderRecentList() {
   `).join('');
 }
 
+let tableSearchQuery = '';
+let tableCategoryFilter = '';
+
+function handleTableFilter() {
+  const searchInput = document.getElementById('table-search');
+  const catSelect = document.getElementById('table-cat-filter');
+  tableSearchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
+  tableCategoryFilter = catSelect ? catSelect.value : '';
+  renderTable();
+}
+
+function exportToCSV() {
+  const filtered = getFiltered();
+  if (!filtered || filtered.length === 0) {
+    showToast('Tidak ada data', 'Tidak ada data pengeluaran untuk diunduh pada bulan ini.', 'warn');
+    return;
+  }
+
+  // Header CSV dengan UTF-8 BOM untuk kompatibilitas Excel
+  let csvContent = '\uFEFFTanggal,Nama Transaksi,Kategori,Nominal (Rp)\n';
+
+  const sorted = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
+  sorted.forEach(e => {
+    const safeName = '"' + String(e.name || '').replace(/"/g, '""') + '"';
+    const catName = '"' + (CAT_LABEL[e.cat] || e.cat) + '"';
+    csvContent += `${e.date},${safeName},${catName},${e.amount}\n`;
+  });
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `Pengeluaran_${activeMonth}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  showToast('CSV Berhasil Diunduh', `Laporan pengeluaran bulan ${monthLabel(activeMonth)} tersimpan.`, 'success');
+}
+
 /* ── Tabel Pengeluaran ── */
 function renderTable() {
   const filtered = getFiltered();
-  const sorted   = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
+  let sorted   = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
   const tbody    = document.getElementById('table-body');
   const emptyEl  = document.getElementById('table-empty');
   const totalRow = document.getElementById('table-total-row');
+  const countBadge = document.getElementById('table-count-badge');
+
+  if (tableSearchQuery) {
+    sorted = sorted.filter(e => String(e.name || '').toLowerCase().includes(tableSearchQuery));
+  }
+  if (tableCategoryFilter) {
+    sorted = sorted.filter(e => e.cat === tableCategoryFilter);
+  }
+
+  if (countBadge) {
+    if (tableSearchQuery || tableCategoryFilter) {
+      countBadge.textContent = `${sorted.length} dari ${filtered.length} data`;
+    } else {
+      countBadge.textContent = `${filtered.length} data`;
+    }
+  }
 
   if (sorted.length === 0) {
     tbody.innerHTML = '';
     emptyEl.style.display = '';
+    if (filtered.length > 0 && (tableSearchQuery || tableCategoryFilter)) {
+      emptyEl.textContent = 'Tidak ada transaksi yang cocok dengan filter pencarian';
+    } else {
+      emptyEl.textContent = 'Belum ada data pengeluaran untuk bulan ini';
+    }
     totalRow.style.display = 'none';
     return;
   }
@@ -1748,7 +1963,7 @@ function renderTable() {
   emptyEl.style.display = 'none';
   totalRow.style.display = '';
 
-  // Hitung total
+  // Hitung total data yang sedang tampil
   const total = sorted.reduce((s, e) => s + e.amount, 0);
   document.getElementById('table-total-val').textContent = fmt(total);
 
