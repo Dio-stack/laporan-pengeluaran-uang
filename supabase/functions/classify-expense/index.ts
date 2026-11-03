@@ -30,13 +30,21 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
     let parsed: any = null;
 
-    // A. Gunakan Google Gemini API Resmi jika tersedia
+    // A. Coba Google Gemini API Resmi terlebih dahulu jika kuncinya ada
     if (geminiKey) {
       const configuredModel = Deno.env.get('GEMINI_MODEL');
-      const candidateModels = Array.from(new Set([configuredModel, 'gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'].filter(Boolean))) as string[];
+      const candidateModels = Array.from(new Set([
+        configuredModel,
+        'gemini-3.8-flash',
+        'gemini-2.5-flash',
+        'gemini-1.5-flash',
+        'gemini-2.5-pro',
+        'gemini-1.5-pro'
+      ].filter(Boolean))) as string[];
+
       const promptText = 'Baca foto struk secara langsung. Ekstrak tanggal format YYYY-MM-DD, nama toko/transaksi, nominal total angka tanpa Rp, kategori salah satu: makanan, transport, hiburan, belanja, kesehatan, lainnya, dan seluruh teks penting yang terbaca pada struk. rawText wajib berisi teks hasil bacaan, bukan ringkasan. Toko seperti Indomaret, Alfamart, supermarket, minimarket = belanja. Jawab JSON hanya dengan keys date, name, amount, category, rawText.';
 
-      let lastError = '';
+      let lastGeminiError = '';
       for (const modelName of candidateModels) {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
         try {
@@ -71,30 +79,28 @@ Deno.serve(async (request: Request): Promise<Response> => {
             const geminiData = await geminiRes.json();
             const rawContent = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
             parsed = JSON.parse(rawContent);
-            break;
+            break; // Berhasil!
           } else {
             const errorText = await geminiRes.text();
-            lastError = `Google Gemini API error (${geminiRes.status}) on model ${modelName}: ${errorText.slice(0, 300)}`;
-            // Jika 404 (model not found / deprecated for user), lanjut ke model berikutnya
-            if (geminiRes.status === 404) {
-              continue;
-            }
-            throw new Error(lastError);
+            lastGeminiError = `Google Gemini (${geminiRes.status}) pada ${modelName}: ${errorText.slice(0, 200)}`;
+            console.warn(`Model ${modelName} gagal (${geminiRes.status}), mencoba model berikutnya...`);
+            continue; // Coba model berikutnya jika 503, 404, 429, dll.
           }
         } catch (fetchErr: any) {
-          lastError = fetchErr.message || String(fetchErr);
-          if (fetchErr.message && !fetchErr.message.includes('404')) {
-            throw fetchErr;
-          }
+          lastGeminiError = fetchErr.message || String(fetchErr);
+          console.warn(`Fetch error pada ${modelName}:`, lastGeminiError);
+          continue;
         }
       }
 
-      if (!parsed) {
-        throw new Error(lastError || 'Semua model Google Gemini yang dicoba tidak merespons.');
+      if (!parsed && !apinexKey) {
+        throw new Error(lastGeminiError || 'Semua model Google Gemini yang dicoba sedang mengalami gangguan server (503). Coba beberapa saat lagi.');
       }
-    } 
-    // B. Fallback ke Apinex jika Gemini API key belum ada
-    else if (apinexKey) {
+    }
+
+    // B. Fallback ke Apinex jika Gemini belum berhasil atau belum disetel
+    if (!parsed && apinexKey) {
+      console.warn('Gemini tidak berhasil atau sedang high demand, beralih ke fallback Apinex...');
       const apiUrl = Deno.env.get('APINEX_API_URL') || 'https://api.apinex.bond/v1/chat/completions';
       const model = Deno.env.get('APINEX_MODEL') || 'free/gemini-3.8-flash';
       const response = await fetch(apiUrl, {
