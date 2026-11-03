@@ -8,7 +8,9 @@
    KONFIGURASI ADMIN (DARI config.js - EDIT FILE INI)
    Ganti ADMIN_CREDENTIALS dan GEMINI_API_KEY di admin/config.js
 ══════════════════════════════════════════════════════ */
-const adminConfig = window.ADMIN_CONFIG;
+const adminConfig = window.ADMIN_CONFIG || {};
+const supabaseUrl = window.SUPABASE_URL || adminConfig.SUPABASE_URL;
+const supabaseKey = window.SUPABASE_ANON_KEY || adminConfig.SUPABASE_KEY;
 let adminClient = null;
 
 function getAdminClient() {
@@ -16,7 +18,7 @@ function getAdminClient() {
     throw new Error('Library Supabase belum dimuat. Periksa koneksi internet lalu muat ulang halaman.');
   }
   if (!adminClient) {
-    adminClient = window.supabase.createClient(adminConfig.SUPABASE_URL, adminConfig.SUPABASE_KEY);
+    adminClient = window.supabase.createClient(supabaseUrl, supabaseKey);
   }
   return adminClient;
 }
@@ -24,70 +26,48 @@ function getAdminClient() {
 /* ════════════════════════════════════════════════════
    SESSION MANAGEMENT
 ══════════════════════════════════════════════════════ */
-const SESSION_KEY = 'admin_session';
-const SESSION_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 hari
-
-function setSession() {
-  const session = {
-    username: adminConfig.ADMIN_CREDENTIALS.username,
-    createdAt: Date.now(),
-    expiresAt: Date.now() + SESSION_EXPIRY,
-  };
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+async function getAdminSession() {
+  const { data: { session }, error } = await getAdminClient().auth.getSession();
+  if (error || !session?.user) return null;
+  return session;
 }
 
-function getSession() {
-  const sessionStr = localStorage.getItem(SESSION_KEY);
-  if (!sessionStr) return null;
-  
-  try {
-    const session = JSON.parse(sessionStr);
-    
-    // Cek apakah session masih valid (belum expired)
-    if (Date.now() > session.expiresAt) {
-      clearSession();
-      return null;
-    }
-    
-    return session;
-  } catch {
-    return null;
-  }
+async function isAdminSession(session = null) {
+  const currentSession = session || await getAdminSession();
+  if (!currentSession?.user) return false;
+
+  const { data, error } = await getAdminClient()
+    .from('admins')
+    .select('id, username')
+    .eq('id', currentSession.user.id)
+    .maybeSingle();
+
+  return !error && Boolean(data);
 }
 
-function clearSession() {
-  localStorage.removeItem(SESSION_KEY);
-}
-
-function isLoggedIn() {
-  return getSession() !== null;
-}
-
-function logout() {
-  clearSession();
+async function logout() {
+  await getAdminClient().auth.signOut();
   window.location.href = './index.html';
 }
 
 /* ════════════════════════════════════════════════════
    AUTHENTICATION
 ══════════════════════════════════════════════════════ */
-function authenticate(username, password) {
-  // Validasi input
-  if (!username || !password) {
-    return { success: false, error: 'Username dan password harus diisi.' };
+async function authenticate(email, password) {
+  if (!email || !password) {
+    return { success: false, error: 'Email dan password harus diisi.' };
   }
-  
-  // Cek credential
-  if (username !== adminConfig.ADMIN_CREDENTIALS.username) {
-    return { success: false, error: 'Username salah.' };
+
+  const { data, error } = await getAdminClient().auth.signInWithPassword({ email, password });
+  if (error) {
+    return { success: false, error: error.message };
   }
-  
-  if (password !== adminConfig.ADMIN_CREDENTIALS.password) {
-    return { success: false, error: 'Password salah.' };
+
+  if (!(await isAdminSession(data.session))) {
+    await getAdminClient().auth.signOut();
+    return { success: false, error: 'Akun ini belum terdaftar sebagai admin.' };
   }
-  
-  // Login berhasil
-  setSession();
+
   return { success: true };
 }
 
@@ -148,12 +128,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-function initLoginPage() {
+async function initLoginPage() {
   const form = document.getElementById('admin-login-form');
   const errorEl = document.getElementById('admin-error');
   const submitBtn = document.getElementById('admin-submit');
-  
-  if (isLoggedIn()) {
+
+  const existingSession = await getAdminSession();
+  if (existingSession && await isAdminSession(existingSession)) {
     window.location.href = './dashboard.html';
     return;
   }
@@ -168,7 +149,7 @@ function initLoginPage() {
     submitBtn.textContent = 'Memproses...';
     errorEl.textContent = '';
     
-    const result = authenticate(username, password);
+    const result = await authenticate(username, password);
     
     if (result.success) {
       window.location.href = './dashboard.html';
@@ -181,16 +162,17 @@ function initLoginPage() {
 }
 
 async function initAdminPage() {
-  if (!isLoggedIn()) {
+  const session = await getAdminSession();
+  if (!session || !(await isAdminSession(session))) {
+    await getAdminClient().auth.signOut();
     window.location.href = './index.html';
     return;
   }
   
   // Tampilkan informasi user yang login
-  const session = getSession();
   const userEl = document.getElementById('admin-user-info');
   if (userEl) {
-    userEl.textContent = `Halo, Admin: ${session.username}`;
+    userEl.textContent = `Halo, Admin: ${session.user.email}`;
   }
   
   // Load data dashboard

@@ -18,14 +18,14 @@
 
       <form id="admin-login-form" class="admin-login-form">
         <div class="form-group">
-          <label for="admin-username">Username</label>
-          <input 
-            type="text" 
-            id="admin-username" 
-            name="username" 
-            autocomplete="username"
-            placeholder="masukkan username admin" 
-            required 
+          <label for="admin-username">Email Admin</label>
+          <input
+            type="email"
+            id="admin-username"
+            name="email"
+            autocomplete="email"
+            placeholder="masukkan email admin"
+            required
           />
         </div>
 
@@ -74,8 +74,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.example.js"></script>
-  <script src="config.js"></script>
+  <script src="../supabase-config.js"></script>
   <script src="admin.js"></script>
 </body>
 
