@@ -8,8 +8,18 @@
    KONFIGURASI ADMIN (DARI config.js - EDIT FILE INI)
    Ganti ADMIN_CREDENTIALS dan GEMINI_API_KEY di admin/config.js
 ══════════════════════════════════════════════════════ */
-const { ADMIN_CREDENTIALS, GEMINI_API_KEY, SUPABASE_URL, SUPABASE_KEY } = window.ADMIN_CONFIG;
-const adminClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const adminConfig = window.ADMIN_CONFIG;
+let adminClient = null;
+
+function getAdminClient() {
+  if (!window.supabase?.createClient) {
+    throw new Error('Library Supabase belum dimuat. Periksa koneksi internet lalu muat ulang halaman.');
+  }
+  if (!adminClient) {
+    adminClient = window.supabase.createClient(adminConfig.SUPABASE_URL, adminConfig.SUPABASE_KEY);
+  }
+  return adminClient;
+}
 
 /* ════════════════════════════════════════════════════
    SESSION MANAGEMENT
@@ -19,7 +29,7 @@ const SESSION_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 hari
 
 function setSession() {
   const session = {
-    username: ADMIN_CREDENTIALS.username,
+    username: adminConfig.ADMIN_CREDENTIALS.username,
     createdAt: Date.now(),
     expiresAt: Date.now() + SESSION_EXPIRY,
   };
@@ -55,7 +65,7 @@ function isLoggedIn() {
 
 function logout() {
   clearSession();
-  window.location.href = '/admin/index.html';
+  window.location.href = './index.html';
 }
 
 /* ════════════════════════════════════════════════════
@@ -68,11 +78,11 @@ function authenticate(username, password) {
   }
   
   // Cek credential
-  if (username !== ADMIN_CREDENTIALS.username) {
+  if (username !== adminConfig.ADMIN_CREDENTIALS.username) {
     return { success: false, error: 'Username salah.' };
   }
   
-  if (password !== ADMIN_CREDENTIALS.password) {
+  if (password !== adminConfig.ADMIN_CREDENTIALS.password) {
     return { success: false, error: 'Password salah.' };
   }
   
@@ -85,7 +95,7 @@ function authenticate(username, password) {
    DATA FETCHING (Admin Only)
 ══════════════════════════════════════════════════════ */
 async function getAllExpenses() {
-  const { data, error } = await adminClient
+  const { data, error } = await getAdminClient()
     .from('expenses')
     .select('*')
     .order('created_at', { ascending: false });
@@ -96,7 +106,7 @@ async function getAllExpenses() {
 
 async function getDailyUsage() {
   const today = new Date().toISOString().split('T')[0];
-  const { data, error } = await adminClient
+  const { data, error } = await getAdminClient()
     .from('ai_usage_logs')
     .select('user_id, tokens_used, model_used, status')
     .eq('request_date', today);
@@ -106,7 +116,7 @@ async function getDailyUsage() {
 }
 
 async function getTotalUsers() {
-  const { count, error } = await adminClient
+  const { count, error } = await getAdminClient()
     .from('expenses')
     .select('*', { count: 'exact', head: true });
   
@@ -114,27 +124,14 @@ async function getTotalUsers() {
   return count || 0;
 }
 
-async function checkGeminiQuota() {
-  // Gunakan GEMINI_API_KEY dari admin/config.js
-  if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY') {
-    throw new Error('GEMINI_API_KEY belum dikonfigurasi. Edit admin/config.js');
-  }
-  
-  const response = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/quotas',
-    { headers: { Authorization: `Bearer ${GEMINI_API_KEY}` } }
-  );
-  
-  if (!response.ok) {
-    throw new Error('Gagal mengambil quota Gemini. Periksa GEMINI_API_KEY di admin/config.js');
-  }
-  
-  const quotas = await response.json();
+function calculateLocalQuota(usage) {
+  const totalDay = Number(adminConfig.GEMINI_DAILY_TOKEN_LIMIT) || 1000000;
+  const usedDay = usage.reduce((sum, log) => sum + (Number(log.tokens_used) || 0), 0);
+
   return {
-    remainingDay: quotas.quotas.quotaRemainingDay || 0,
-    totalDay: quotas.quotas.quotaPerDay || 0,
-    remainingMinute: quotas.quotas.quotaRemainingMinute || 0,
-    totalMinute: quotas.quotas.quotaPerMinute || 0,
+    usedDay,
+    remainingDay: Math.max(totalDay - usedDay, 0),
+    totalDay,
   };
 }
 
@@ -157,7 +154,7 @@ function initLoginPage() {
   const submitBtn = document.getElementById('admin-submit');
   
   if (isLoggedIn()) {
-    window.location.href = '/admin/dashboard.html';
+    window.location.href = './dashboard.html';
     return;
   }
   
@@ -174,7 +171,7 @@ function initLoginPage() {
     const result = authenticate(username, password);
     
     if (result.success) {
-      window.location.href = '/admin/dashboard.html';
+      window.location.href = './dashboard.html';
     } else {
       errorEl.textContent = result.error;
       submitBtn.disabled = false;
@@ -185,7 +182,7 @@ function initLoginPage() {
 
 async function initAdminPage() {
   if (!isLoggedIn()) {
-    window.location.href = '/admin/index.html';
+    window.location.href = './index.html';
     return;
   }
   
@@ -205,14 +202,14 @@ async function initAdminPage() {
 }
 
 async function loadDashboardData() {
-  const [expenses, usage, totalUsers, quota] = await Promise.all([
+  const [expenses, usage, totalUsers] = await Promise.all([
     getAllExpenses(),
     getDailyUsage(),
     getTotalUsers(),
-    checkGeminiQuota(),
   ]);
+  const quota = calculateLocalQuota(usage);
   
-  // Update UI
+  // Kuota total berasal dari limit yang dikonfigurasi; penggunaan dihitung dari log Supabase.
   updateQuotaUI(quota);
   updateUsageUI(usage);
   updateExpensesUI(expenses);
@@ -220,8 +217,8 @@ async function loadDashboardData() {
 }
 
 function updateQuotaUI(quota) {
-  const used = quota.totalDay - quota.remainingDay;
-  const percent = Math.round((used / quota.totalDay) * 100);
+  const used = quota.usedDay;
+  const percent = quota.totalDay > 0 ? Math.round((used / quota.totalDay) * 100) : 0;
   
   document.getElementById('quota-used').textContent = formatNumber(used);
   document.getElementById('quota-remaining').textContent = formatNumber(quota.remainingDay);
