@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel — Login</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+
+<body id="admin-login">
+  <div class="admin-login-container">
+    <div class="admin-login-card">
+      <div class="admin-login-header">
+        <h1>🌸 Admin Panel</h1>
+        <p>Mohon masuk dengan kredensial admin</p>
+      </div>
+
+      <form id="admin-login-form" class="admin-login-form">
+        <div class="form-group">
+          <label for="admin-username">Username</label>
+          <input 
+            type="text" 
+            id="admin-username" 
+            name="username" 
+            autocomplete="username"
+            placeholder="masukkan username admin" 
+            required 
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="admin-password">Password</label>
+          <div class="password-input-wrap">
+            <input 
+              type="password" 
+              id="admin-password" 
+              name="password" 
+              autocomplete="current-password"
+              placeholder="masukkan password admin" 
+              required 
+            />
+            <button 
+              type="button" 
+              class="password-toggle" 
+              data-target="admin-password"
+              aria-label="Tampilkan password"
+            >
+              <svg class="icon-eye" viewBox="0 0 24 24">
+                <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 0 0 1-19.876 0" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              <svg class="icon-eye-off" viewBox="0 0 24 24" hidden>
+                <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 10.747 10.747 0 0 1-1.444 2.49" />
+                <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
+                <path d="M17.479 17.499a10.748 10.748 0 0 1-15.417-5.151 10.75 10.75 0 0 1 4.446-5.143" />
+                <path d="m2 2 20 20" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <p class="admin-error" id="admin-error" role="alert" aria-live="polite"></p>
+        
+        <button class="admin-submit" id="admin-submit" type="submit">
+          Masuk ke Admin Panel
+        </button>
+      </form>
+
+      <div class="admin-login-footer">
+        <p>🔒 Halaman khusus administrator. Dilarang akses oleh user biasa.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="admin.js"></script>
+</body>
+
+</html>

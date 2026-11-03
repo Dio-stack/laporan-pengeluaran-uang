@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel — Dashboard</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+
+<body id="admin-dashboard">
+  <header class="admin-header">
+    <div class="admin-header-left">
+      <h1>🌸 Admin Dashboard</h1>
+      <p id="admin-user-info">Halo, Admin</p>
+    </div>
+    <div class="admin-header-right">
+      <button id="refresh-btn" class="btn btn-secondary">🔄 Refresh</button>
+      <button onclick="window.adminLogout()" class="btn btn-danger">🚪 Logout</button>
+    </div>
+  </header>
+
+  <main class="admin-container">
+    <!-- Statistik Kuota AI -->
+    <section class="admin-card quota-card">
+      <h2>🤖 Gemini AI Quota</h2>
+      <div class="admin-stats">
+        <div class="stat-item">
+          <span class="stat-value" id="quota-used">0</span>
+          <span class="stat-label">Token Terpakai Hari Ini</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="quota-remaining">0</span>
+          <span class="stat-label">Sisa Token Hari Ini</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="quota-total">0</span>
+          <span class="stat-label">Total Limit Harian</span>
+        </div>
+      </div>
+      <div class="progress-bar-container">
+        <div class="progress-bar" id="quota-progress"></div>
+      </div>
+      <p class="stat-note">
+        Pemakaian hari ini: <strong id="quota-percent">0%</strong>
+      </p>
+    </section>
+
+    <!-- Statistik Penggunaan -->
+    <section class="admin-card usage-card">
+      <h2>📊 Penggunaan AI Hari Ini</h2>
+      <div class="admin-stats">
+        <div class="stat-item">
+          <span class="stat-value" id="usage-requests-today">0</span>
+          <span class="stat-label">Total Request</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="usage-tokens-today">0</span>
+          <span class="stat-label">Token Terpakai</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="total-users">0</span>
+          <span class="stat-label">User Aktif</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tabel Data Pengeluaran -->
+    <section class="admin-card data-card">
+      <h2>📋 Data Pengeluaran User (Terbaru)</h2>
+      <div class="table-responsive">
+        <table id="expenses-table">
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Nama Transaksi</th>
+              <th>Kategori</th>
+              <th>Nominal</th>
+              <th>Waktu Input</th>
+            </tr>
+          </thead>
+          <tbody id="expenses-table-body">
+            <tr>
+              <td colspan="5" style="text-align: center;">Memuat data...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="admin.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,306 @@
+/* =====================================================
+   ADMIN PANEL STYLES
+===================================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #fdf2f7 0%, #fce7f3 100%);
+  color: #333;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ================= LOGIN PAGE ================= */
+.admin-login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.admin-login-card {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(217, 75, 137, 0.15);
+  padding: 40px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.admin-login-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.admin-login-header h1 {
+  font-size: 28px;
+  color: #d94b89;
+  margin-bottom: 8px;
+}
+
+.admin-login-header p {
+  color: #666;
+  font-size: 14px;
+}
+
+.admin-login-form .form-group {
+  margin-bottom: 20px;
+}
+
+.admin-login-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.admin-login-form input[type="text"],
+.admin-login-form input[type="password"] {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e8e8e8;
+  border-radius: 10px;
+  font-size: 15px;
+  transition: border-color 0.3s;
+}
+
+.admin-login-form input:focus {
+  outline: none;
+  border-color: #d94b89;
+}
+
+.admin-error {
+  color: #dc3545;
+  font-size: 13px;
+  margin-bottom: 15px;
+  min-height: 18px;
+}
+
+.admin-submit {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #d94b89 0%, #c73e7d 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.admin-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(217, 75, 137, 0.3);
+}
+
+.admin-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.admin-login-footer {
+  margin-top: 25px;
+  text-align: center;
+}
+
+.admin-login-footer p {
+  color: #888;
+  font-size: 12px;
+}
+
+/* ================= DASHBOARD ================= */
+.admin-header {
+  background: white;
+  padding: 20px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.admin-header-left h1 {
+  font-size: 24px;
+  color: #d94b89;
+  margin-bottom: 4px;
+}
+
+.admin-header-left p {
+  color: #666;
+  font-size: 14px;
+}
+
+.admin-header-right {
+  display: flex;
+  gap: 10px;
+}
+
+.admin-container {
+  max-width: 1200px;
+  margin: 30px auto;
+  padding: 0 20px;
+  display: grid;
+  gap: 25px;
+}
+
+.admin-card {
+  background: white;
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.admin-card h2 {
+  font-size: 18px;
+  color: #333;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 20px;
+}
+
+.stat-item {
+  background: #fdf2f7;
+  padding: 20px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  color: #d94b89;
+  margin-bottom: 6px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #666;
+}
+
+.progress-bar-container {
+  background: #e8e8e8;
+  border-radius: 10px;
+  height: 12px;
+  margin-top: 15px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  background: linear-gradient(90deg, #d94b89 0%, #c73e7d 100%);
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.5s ease;
+}
+
+.stat-note {
+  text-align: center;
+  margin-top: 10px;
+  color: #666;
+  font-size: 13px;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+#expenses-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#expenses-table th,
+#expenses-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+#expenses-table th {
+  background: #fdf2f7;
+  color: #d94b89;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+#expenses-table td {
+  font-size: 14px;
+}
+
+#expenses-table tbody tr:hover {
+  background: #fafafa;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary {
+  background: #e8e8e8;
+  color: #333;
+}
+
+.btn-secondary:hover {
+  background: #d8d8d8;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+/* Password toggle */
+.password-input-wrap {
+  position: relative;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.password-toggle svg {
+  width: 20px;
+  height: 20px;
+  fill: #666;
+}
+
+/* Refresh button handler */
+#refresh-btn {
+  display: none;
+}
