@@ -1,3 +1,4 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 declare const Deno: {
   env: { get(name: string): string | undefined };
   serve(handler: (request: Request) => Response | Promise<Response>): void;
@@ -175,6 +176,35 @@ Deno.serve(async (request: Request): Promise<Response> => {
     const category = String(parsed.category || 'lainnya').toLowerCase().trim();
     const finalCategory = allowedCategories.includes(category) ? category : 'lainnya';
     const amount = Number(String(parsed.amount || 0).replace(/[^0-9]/g, ''));
+
+    // Log AI usage ke database (untuk monitoring quota di admin panel)
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      const authHeader = request.headers.get('authorization');
+      const token = authHeader?.split(' ')[1];
+      const { data: { user } } = await supabase.auth.getUser(token);
+
+      if (user) {
+        // Estimasi token: 1 token ≈ 3-4 karakter (Indonesia/Inggris)
+        const rawText = String(parsed.rawText || '');
+        const estimatedTokens = Math.ceil(rawText.length / 3);
+
+        await supabase.from('ai_usage_logs').insert({
+          user_id: user.id,
+          request_date: new Date().toISOString().split('T')[0],
+          tokens_used: estimatedTokens,
+          model_used: modelName,
+          status: 'success',
+          error_message: null,
+        });
+      }
+    } catch (logErr) {
+      // Jangan throw error, biar request tetap berhasil
+      console.error('Failed to log AI usage:', logErr);
+    }
 
     return new Response(JSON.stringify({
       date: parsed.date || '',

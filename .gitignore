@@ -4,3 +4,19 @@ Thumbs.db
 *.zip
 *.tgz
 supabase/.temp/
+
+# Supabase
+.supabase/
+
+# Environment variables (JANGAN PUSH FILE INI KE GITHUB!)
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
