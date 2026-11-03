@@ -5,19 +5,10 @@
 'use strict';
 
 /* ════════════════════════════════════════════════════
-   KONFIGURASI CREDENTIAL ADMIN
-   GANTI DENGAN USERNAME & PASSWORD KARYA ANDA
+   KONFIGURASI ADMIN (DARI config.js - EDIT FILE INI)
+   Ganti ADMIN_CREDENTIALS dan GEMINI_API_KEY di admin/config.js
 ══════════════════════════════════════════════════════ */
-const ADMIN_CREDENTIALS = {
-  username: 'admin_anggun',
-  password: 'AnggunGarden2026!@#',  // GANTI INI!
-};
-
-/* ════════════════════════════════════════════════════
-   SUPABASE CONFIG
-══════════════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://qwpyiygsrqcwjnetrvca.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_sXKbtP6sslZH_YsJX2_LiA_jlgaUhxH';
+const { ADMIN_CREDENTIALS, GEMINI_API_KEY, SUPABASE_URL, SUPABASE_KEY } = window.ADMIN_CONFIG;
 const adminClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ════════════════════════════════════════════════════
@@ -124,17 +115,18 @@ async function getTotalUsers() {
 }
 
 async function checkGeminiQuota() {
-  // ⚠️ PENTING: Ganti 'YOUR_GEMINI_API_KEY' dengan key asli Anda
-  // Dapatkan di: https://aistudio.google.com/app/apikey
-  const GEMINI_KEY = 'YOUR_GEMINI_API_KEY';
+  // Gunakan GEMINI_API_KEY dari admin/config.js
+  if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY') {
+    throw new Error('GEMINI_API_KEY belum dikonfigurasi. Edit admin/config.js');
+  }
   
   const response = await fetch(
     'https://generativelanguage.googleapis.com/v1beta/quotas',
-    { headers: { Authorization: `Bearer ${GEMINI_KEY}` } }
+    { headers: { Authorization: `Bearer ${GEMINI_API_KEY}` } }
   );
   
   if (!response.ok) {
-    throw new Error('Gagal mengambil quota Gemini. Periksa GEMINI_KEY di admin.js');
+    throw new Error('Gagal mengambil quota Gemini. Periksa GEMINI_API_KEY di admin/config.js');
   }
   
   const quotas = await response.json();

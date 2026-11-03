@@ -11,19 +11,32 @@ iseng_aja/
 │   ├── dashboard.html       # Halaman dashboard
 │   ├── admin.js             # Logic JavaScript
 │   ├── admin.css            # Styling
+│   ├── config.js            # KONFIGURASI LOKAL (JANGAN PUSH!)
 │   └── README.md            # Dokumentasi admin panel
 ├── supabase/
 │   ├── functions/
 │   │   └── classify-expense/ # Function AI untuk scan struk
 │   │       └── index.ts
 │   └── migrations/
-│       └── admin-setup.sql  # SQL setup untuk admin panel
+│       ├── admin-setup.sql  # SQL setup untuk admin panel
+│       └── add-admin.sql    # SQL untuk tambah admin
 ├── app.js                    # Logic utama aplikasi
 ├── index.html                # Halaman utama
 ├── style.css                 # Styling utama
 ├── supabase-config.js        # Konfigurasi Supabase
-└── .env.example              # Template environment variables
+├── .env.example              # Template environment variables
+└── .env.local                # KONFIGURASI LOKAL (JANGAN PUSH!)
 ```
+
+## ⚠️ PENTING — Keamanan Kredensial
+
+File berikut **TIDAK** di-push ke GitHub (ada di `.gitignore`):
+- `admin/config.js` — berisi GEMINI_API_KEY & kredensial admin
+- `.env.local` — environment variables lokal
+
+**Semua kredensial disimpan di file-file ini, bukan di code yang di-push.**
+
+## 🚀 Setup Admin Panel (Langkah demi Langkah)
 
 ## 🚀 Setup Admin Panel (Langkah demi Langkah)
 
@@ -51,28 +64,23 @@ values (
 );
 ```
 
-### Step 3: Isi Gemini API Key
+### Step 3: Isi Gemini API Key & Kredensial Admin
 
-Buka `admin/admin.js`, cari baris:
-
-```javascript
-const GEMINI_KEY = 'YOUR_GEMINI_API_KEY';
-```
-
-Ganti dengan key asli Anda (dapatkan di: [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey))
-
-**⚠️ PENTING:** Jangan push key asli ke GitHub!
-
-### Step 4: Ganti Username & Password Admin
-
-Di `admin/admin.js`, cari:
+Buka file `admin/config.js` (LOKAL, tidak di-push), lalu isi:
 
 ```javascript
+// ⚠️ GANTI DENGAN CREDENTIAL ADMIN ANDA ⚠️
 const ADMIN_CREDENTIALS = {
   username: 'admin_anggun',
-  password: 'AnggunGarden2026!@#',  // GANTI INI!
+  password: 'password-anda',
 };
+
+// ⚠️ GANTI DENGAN GEMINI API KEY ANDA ⚠️
+// Dapatkan di: https://aistudio.google.com/app/apikey
+const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY';
 ```
+
+**⚠️ PENTING:** Jangan push file `admin/config.js` ke GitHub! File ini sudah ada di `.gitignore`.
 
 ### Step 5: Push ke GitHub
 

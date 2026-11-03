@@ -10,16 +10,16 @@ Buka: `https://dio-stack.github.io/laporan-pengeluaran-uang/admin/index.html`
 
 ## 🔐 Login
 
-Username & password admin disimpan di `admin.js`:
+Salin `admin/config.example.js` menjadi `admin/config.js` lalu isi username dan password lokal Anda:
 
 ```javascript
 const ADMIN_CREDENTIALS = {
   username: 'admin_anggun',
-  password: 'AnggunGarden2026!@#',
+  password: 'password-anda',
 };
 ```
 
-**Ganti credential ini sesuai keinginan Anda!**
+`admin/config.js` sudah masuk `.gitignore` dan tidak boleh di-push. Login front-end ini hanya lapisan UI; otorisasi data tetap menggunakan Supabase dan tabel `admins`.
 
 ## 📊 Fitur Dashboard
 
@@ -107,15 +107,13 @@ values (
 
 ## 🔑 Isi Gemini API Key
 
-Buka `admin/admin.js`, cari baris:
+Isi `GEMINI_API_KEY` di `admin/config.js` setelah menyalin dari `config.example.js`:
 
 ```javascript
-const GEMINI_KEY = 'YOUR_GEMINI_API_KEY';
+const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY';
 ```
 
-Ganti dengan key asli Anda (dapatkan di: https://aistudio.google.com/app/apikey)
-
-**⚠️ PENTING:** Jangan push key asli ke GitHub! Simpan di file lokal saja.
+Dapatkan key di: https://aistudio.google.com/app/apikey. Jangan pernah menempatkan key asli dalam file yang ter-track Git.
 
 ## 📁 Struktur File
 
@@ -124,7 +122,9 @@ admin/
 ├── index.html       # Halaman login admin
 ├── dashboard.html   # Halaman dashboard utama
 ├── admin.js         # Logic JavaScript
-└── admin.css        # Styling
+├── admin.css        # Styling
+├── config.example.js # Template konfigurasi aman untuk Git
+└── config.js        # Override lokal (tidak di-push)
 ```
 
 ## 🔄 Cara Kerja
@@ -151,7 +151,7 @@ admin/
 |---------|--------|
 | Login tidak bisa | Pastikan database sudah di-setup (tabel `admins` ada) |
 | Dashboard kosong | Cek console browser (F12) untuk error |
-| Quota error | Isi `GEMINI_KEY` yang benar di `admin.js` |
+| Quota error | Isi `GEMINI_API_KEY` yang benar di `admin/config.js` |
 | "Failed to load dashboard" | Pastikan Supabase URL & Key benar |
 
 ## 📝 Changelog

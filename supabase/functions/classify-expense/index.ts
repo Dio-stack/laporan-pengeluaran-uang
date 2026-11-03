@@ -1,3 +1,4 @@
+// @ts-ignore: Supabase Edge Functions resolve HTTPS imports through the Deno runtime.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 declare const Deno: {
   env: { get(name: string): string | undefined };
@@ -30,6 +31,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
     }
 
     let parsed: any = null;
+    let usedModel: string | null = null;
 
     // A. Coba Google Gemini API Resmi terlebih dahulu jika kuncinya ada
     if (geminiKey) {
@@ -80,6 +82,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
             const geminiData = await geminiRes.json();
             const rawContent = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
             parsed = JSON.parse(rawContent);
+            usedModel = modelName;
             break; // Berhasil!
           } else {
             const errorText = await geminiRes.text();
@@ -104,6 +107,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       console.warn('Gemini tidak berhasil atau sedang high demand, beralih ke fallback Apinex...');
       const apiUrl = Deno.env.get('APINEX_API_URL') || 'https://api.apinex.bond/v1/chat/completions';
       const model = Deno.env.get('APINEX_MODEL') || 'free/gemini-3.8-flash';
+      usedModel = model;
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -196,7 +200,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
           user_id: user.id,
           request_date: new Date().toISOString().split('T')[0],
           tokens_used: estimatedTokens,
-          model_used: modelName,
+          model_used: usedModel || 'unknown',
           status: 'success',
           error_message: null,
         });
