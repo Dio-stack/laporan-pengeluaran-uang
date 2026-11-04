@@ -10,7 +10,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const allowedCategories = ['makanan', 'transport', 'hiburan', 'belanja', 'kesehatan', 'lainnya'];
+const allowedCategories = ['makanan', 'transport', 'hiburan', 'belanja', 'kesehatan', 'skincare', 'lainnya'];
 
 Deno.serve(async (request: Request): Promise<Response> => {
   if (request.method === 'OPTIONS') {
@@ -45,7 +45,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
         'gemini-1.5-pro'
       ].filter(Boolean))) as string[];
 
-      const promptText = 'Baca foto struk secara langsung. Ekstrak tanggal format YYYY-MM-DD, nama toko/transaksi, nominal total angka tanpa Rp, kategori salah satu: makanan, transport, hiburan, belanja, kesehatan, lainnya, dan seluruh teks penting yang terbaca pada struk. rawText wajib berisi teks hasil bacaan, bukan ringkasan. Toko seperti Indomaret, Alfamart, supermarket, minimarket = belanja. Jawab JSON hanya dengan keys date, name, amount, category, rawText.';
+      const promptText = 'Baca foto struk secara langsung. Ekstrak tanggal format YYYY-MM-DD, nama toko/transaksi, nominal total angka tanpa Rp, kategori salah satu: makanan, transport, hiburan, belanja, kesehatan, skincare, lainnya, dan seluruh teks penting yang terbaca pada struk. Produk skincare atau makeup = skincare. Toko seperti Indomaret, Alfamart, supermarket, minimarket = belanja. Jawab JSON hanya dengan keys date, name, amount, category, rawText.';
 
       let lastGeminiError = '';
       for (const modelName of candidateModels) {
@@ -122,7 +122,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
           messages: [
             {
               role: 'system',
-              content: 'Baca foto struk secara langsung. Ekstrak tanggal format YYYY-MM-DD, nama toko/transaksi, nominal total angka tanpa Rp, kategori salah satu: makanan, transport, hiburan, belanja, kesehatan, lainnya, dan seluruh teks penting yang terbaca pada struk. rawText wajib berisi teks hasil bacaan, bukan ringkasan. Toko seperti Indomaret, Alfamart, supermarket, minimarket = belanja. Jawab JSON hanya dengan keys date, name, amount, category, rawText.',
+              content: 'Baca foto struk secara langsung. Ekstrak tanggal format YYYY-MM-DD, nama toko/transaksi, nominal total angka tanpa Rp, kategori salah satu: makanan, transport, hiburan, belanja, kesehatan, skincare, lainnya, dan seluruh teks penting yang terbaca pada struk. Produk skincare atau makeup = skincare. Toko seperti Indomaret, Alfamart, supermarket, minimarket = belanja. Jawab JSON hanya dengan keys date, name, amount, category, rawText.',
             },
             {
               role: 'user',

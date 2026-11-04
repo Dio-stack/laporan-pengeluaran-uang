@@ -822,6 +822,7 @@ body {
 .cat-hiburan    { background: rgba(232,173,79,0.17); color: #9b6a16; }
 .cat-belanja    { background: rgba(217,73,134,0.18); color: #ad285f; }
 .cat-kesehatan  { background: rgba(167,139,212,0.15); color: #7257a2; }
+.cat-skincare   { background: rgba(216,156,174,0.18); color: #9f526d; }
 .cat-pendidikan { background: rgba(88,185,199,0.15); color: #277c88; }
 .cat-tagihan    { background: rgba(229,142,104,0.15); color: #a95835; }
 .cat-lainnya    { background: rgba(155,139,150,0.14); color: #74616d; }
@@ -1662,4 +1663,3 @@ body {
 .table-cat-wrap select:focus {
   border-color: var(--accent);
 }
-

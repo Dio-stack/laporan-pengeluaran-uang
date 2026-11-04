@@ -31,6 +31,7 @@ const CAT_COLORS = {
   hiburan:    '#e8ad4f',
   belanja:    '#d94b89',
   kesehatan:  '#a78bd4',
+  skincare:   '#d89cae',
   pendidikan: '#58b9c7',
   tagihan:    '#e58e68',
   lainnya:    '#9b8b96',
@@ -42,6 +43,7 @@ const CAT_EMOJI = {
   hiburan:    '🎮',
   belanja:    '🛍️',
   kesehatan:  '💊',
+  skincare:   '💄',
   pendidikan: '📚',
   tagihan:    '⚡',
   lainnya:    '📦',
@@ -53,6 +55,7 @@ const CAT_LABEL = {
   hiburan:    'Hiburan',
   belanja:    'Belanja',
   kesehatan:  'Kesehatan',
+  skincare:   'Skincare & Make Up',
   pendidikan: 'Pendidikan',
   tagihan:    'Tagihan',
   lainnya:    'Lainnya',
@@ -956,8 +959,17 @@ const RECEIPT_CATEGORIES = {
   hiburan: 'Hiburan',
   belanja: 'Belanja',
   kesehatan: 'Kesehatan',
+  skincare: 'Skincare & Make Up',
   lainnya: 'Lainnya',
 };
+
+function normalizeCategory(category) {
+  const normalized = String(category || '').trim();
+  if (normalized === 'Skincare & Make Up' || normalized === '💄 Skincare & Make Up') {
+    return 'skincare';
+  }
+  return normalized;
+}
 
 async function analyzeReceiptWithAI(imageBase64, mimeType) {
   if (!initSupabase()) throw new Error('Supabase belum dikonfigurasi.');
@@ -1345,7 +1357,7 @@ function mapExpense(row) {
     id: row.id,
     date: row.expense_date,
     name: row.name,
-    cat: row.category,
+    cat: normalizeCategory(row.category),
     amount: Number(row.amount),
   };
 }
