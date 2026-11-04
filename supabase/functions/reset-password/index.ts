@@ -3,7 +3,8 @@ declare const Deno: {
   serve(handler: (request: Request) => Response | Promise<Response>): void;
 };
 
-import { createClient } from 'npm:@supabase/supabase-js@2';
+// @ts-ignore: Supabase Edge Functions resolve HTTPS imports through the Deno runtime.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -46,7 +47,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       if (userError) throw userError;
 
       targetUser = data.users.find(
-        (user) => (user.email || '').toLowerCase() === targetEmail,
+        (user: { email?: string | null }) => (user.email || '').toLowerCase() === targetEmail,
       );
 
       if (data.users.length < 1000) break;
