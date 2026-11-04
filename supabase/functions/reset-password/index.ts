@@ -3,7 +3,7 @@ declare const Deno: {
   serve(handler: (request: Request) => Response | Promise<Response>): void;
 };
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -37,11 +37,21 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
     const targetEmail = `${cleanUsername}@dompetku.app`;
 
-    // Cari user berdasarkan email
-    const { data, error: userError } = await supabaseAdmin.auth.admin.listUsers();
-    if (userError) throw userError;
+    // Cari user di semua halaman agar tidak gagal ketika akun berada setelah halaman pertama.
+    let targetUser: { id: string } | undefined;
+    let page = 1;
 
-    const targetUser = data.users.find(u => (u.email || '').toLowerCase() === targetEmail);
+    while (!targetUser) {
+      const { data, error: userError } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (userError) throw userError;
+
+      targetUser = data.users.find(
+        (user) => (user.email || '').toLowerCase() === targetEmail,
+      );
+
+      if (data.users.length < 1000) break;
+      page += 1;
+    }
     if (!targetUser) {
       throw new Error(`Akun dengan username "${cleanUsername}" tidak ditemukan di database.`);
     }

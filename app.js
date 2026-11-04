@@ -635,6 +635,8 @@ async function handleResetCredentialsSubmit(event) {
         });
         if (!resetErr && resetRes?.success) {
           cloudSynced = true;
+        } else if (resetErr) {
+          console.warn('Reset password cloud gagal:', resetErr);
         }
       } catch (e) {
         console.warn('Fungsi reset-password belum aktif di Supabase:', e);
