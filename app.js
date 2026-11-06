@@ -133,11 +133,6 @@ function openAppGate(loadData = true) {
   document.getElementById('access-gate').classList.add('is-hidden');
   document.getElementById('gate-logout').hidden = false;
   document.body.appendChild(document.getElementById('cute-companion'));
-  window.setTimeout(() => {
-    const companion = document.getElementById('cute-companion');
-    setCuteMessage('Selamat datang kembali! 💖');
-    celebrateCute(companion, ['♡', '🌷', '✨', '🎀', '🌸'], 24);
-  }, 350);
   if (loadData) loadSupabaseData();
 }
 
@@ -1287,8 +1282,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       void cuteButton.offsetWidth;
       cuteButton.classList.add('is-clicked');
       window.setTimeout(() => cuteButton.classList.remove('is-clicked'), 400);
-      celebrateCute(cuteButton, ['♡', '🌸', '🌷', '✨'], 12, false);
       setCuteMessage(['semangat terus ya sayangg! ♡', 'ayo sayangg catat pengeluaranmu! ✨', 'hebat bgttt sayangkuu! 🌷', 'yippieee! 🎀'][Math.floor(Math.random() * 4)]);
+    });
+    cuteButton.addEventListener('dblclick', event => {
+      event.preventDefault();
+      if (cuteButton.dataset.dragged === 'true') return;
+      celebrateCute(cuteButton, ['♡', '🌸', '🌷', '🌼', '🌺', '💮'], 16, false);
+      setCuteMessage('dua kali dipencet, bunga-bunganya buat kamu 🌸♡');
     });
   }
   document.querySelectorAll('.password-toggle').forEach(button => {
@@ -2614,7 +2614,7 @@ function setupCuteCompanionDrag() {
         x: companion.offsetLeft,
         y: companion.offsetTop,
       }));
-      window.setTimeout(() => { handle.dataset.dragged = 'false'; }, 120);
+      window.setTimeout(() => { handle.dataset.dragged = 'false'; }, 350);
     }
   };
 
