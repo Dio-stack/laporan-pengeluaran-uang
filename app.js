@@ -1017,6 +1017,14 @@ function toggleReceiptDemo() {
   button.setAttribute('aria-expanded', String(opening));
 }
 
+function closeReceiptDemo() {
+  document.getElementById('receipt-demo').hidden = true;
+  const button = document.getElementById('receipt-demo-toggle');
+  button.hidden = false;
+  button.textContent = 'Buka scanner';
+  button.setAttribute('aria-expanded', 'false');
+}
+
 function selectReceiptImage(event) {
   const [file] = event.target.files;
   if (!file) return;
@@ -1039,7 +1047,7 @@ function selectReceiptImage(event) {
   document.getElementById('receipt-results').hidden = true;
 }
 
-function resetReceiptScanner() {
+function resetReceiptScanner(showMessage = true) {
   receiptScanGeneration += 1;
   receiptDemoFile = null;
   if (receiptPreviewUrl) {
@@ -1063,7 +1071,9 @@ function resetReceiptScanner() {
   document.getElementById('receipt-result-category').dataset.value = '';
   document.getElementById('receipt-result-amount').value = '';
   document.getElementById('receipt-raw-text').textContent = '';
-  showToast('Foto dibatalkan', 'Silakan pilih foto struk lain untuk mulai ulang.', 'success');
+  if (showMessage) {
+    showToast('Foto dibatalkan', 'Silakan pilih foto struk lain untuk mulai ulang.', 'success');
+  }
 }
 
 function receiptBlobToBase64(blob) {
@@ -1173,6 +1183,8 @@ function fillExpenseFromReceipt() {
     document.getElementById('inp-name').value = expense.name;
     document.getElementById('inp-cat').value = expense.category;
     document.getElementById('inp-amount').value = expense.amount;
+    resetReceiptScanner(false);
+    closeReceiptDemo();
     document.getElementById('expense-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
     showToast('Form terisi', 'Periksa hasilnya, lalu tekan Simpan Pengeluaran.', 'success');
   } catch (error) {
