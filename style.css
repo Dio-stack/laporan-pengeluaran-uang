@@ -280,6 +280,53 @@ body {
 
 .topbar-right { display: flex; align-items: center; gap: 12px; }
 
+.bunny-cage {
+  position: relative;
+  width: 46px;
+  height: 38px;
+  border: 1px solid #dfa2bd;
+  border-radius: 12px;
+  background: #fffafd;
+  color: #9e3e69;
+  font-size: 18px;
+  cursor: pointer;
+}
+.bunny-cage span:last-child {
+  position: absolute;
+  right: 3px;
+  bottom: 0;
+  font-size: 15px;
+}
+.bunny-cage-dialog {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 1100;
+  width: min(330px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid #dfa2bd;
+  border-radius: 18px;
+  background: #fffafd;
+  box-shadow: 0 12px 36px rgba(120, 55, 91, .22);
+  transform: translateX(-50%);
+  text-align: center;
+}
+.bunny-cage-dialog[hidden] { display: none; }
+.bunny-cage-dialog-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.bunny-cage-dialog-actions button {
+  flex: 1;
+  min-height: 38px;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.bunny-cage-save { background: #d94b89; color: #fff; }
+.bunny-cage-cancel { background: #ffe3ef; color: #9e3e69; }
+
 .month-selector { position: relative; }
 
 .month-picker-button {
@@ -1595,7 +1642,7 @@ body {
   height: 118px;
   pointer-events: none;
   filter: drop-shadow(0 14px 18px rgba(157, 52, 104, 0.24));
-  animation: companion-arrive 900ms cubic-bezier(.16, 1.25, .35, 1) both;
+  animation: none;
 }
 
 .cute-companion-speech {
@@ -1636,14 +1683,14 @@ body {
 .cute-companion.is-dragging {
   animation: none !important;
   cursor: grabbing;
-  filter: drop-shadow(0 18px 20px rgba(157, 52, 104, 0.34));
+  filter: drop-shadow(0 14px 18px rgba(157, 52, 104, 0.24));
 }
 
 .cute-companion.is-dragging .cute-companion-body {
   cursor: grabbing;
 }
 
-.cute-companion-body:active { transform: scale(.97); }
+.cute-companion-body:active { transform: none; }
 .cute-companion-face {
   position: absolute;
   left: 0;
@@ -1662,11 +1709,46 @@ body {
   display: inline-block;
   margin: 0 1px;
 }
+.cute-companion-cheek {
+  position: absolute;
+  top: 20px;
+  color: rgba(210, 74, 130, 0);
+  font-size: 14px;
+  transition: color 180ms ease, transform 180ms ease;
+}
+.cute-companion-cheek-left { left: 8px; }
+.cute-companion-cheek-right { right: 8px; }
 .cute-companion-body.is-clicked {
-  animation: companion-tap 360ms cubic-bezier(.2,.8,.3,1);
+  animation: none;
+}
+.cute-companion-body.is-holding {
+  box-shadow: inset 0 0 0 3px rgba(217, 73, 134, .18),
+              0 0 0 5px rgba(255, 184, 211, .28);
 }
 .cute-companion-body.is-clicked .cute-companion-eye {
   animation: companion-blink 360ms ease;
+}
+.cute-companion-body.is-petted .cute-companion-face {
+  transform: translateY(2px) rotate(-5deg);
+}
+.cute-companion-body.is-petted .cute-companion-mouth {
+  color: #9e3e69;
+  font-size: 12px;
+  transform: translateY(1px);
+}
+.cute-companion-body.is-petted .cute-companion-eye {
+  font-size: 19px;
+  animation: none;
+}
+.cute-companion-body.is-petted .cute-companion-cheek {
+  color: rgba(210, 74, 130, .62);
+  transform: scale(1.25);
+}
+.cute-companion-body.is-petted .cute-companion-ear-left {
+  transform: rotate(-32deg) translateY(3px);
+}
+.cute-companion-body.is-petted .cute-companion-ear-right {
+  transform: scaleX(-1) rotate(-32deg) translateY(3px);
 }
 .cute-companion-ear {
   position: absolute;
@@ -1693,6 +1775,24 @@ body {
 }
 .cute-companion-paw-left { left: -10px; transform: rotate(20deg); }
 .cute-companion-paw-right { right: -10px; transform: rotate(-20deg); }
+.cute-companion-body.is-love .cute-companion-paw {
+  bottom: 10px;
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
+}
+.cute-companion-body.is-love .cute-companion-paw-left {
+  left: 11px;
+  transform: translateY(-8px) rotate(-18deg);
+}
+.cute-companion-body.is-love .cute-companion-paw-right {
+  right: 11px;
+  transform: translateY(-8px) rotate(18deg);
+}
 
 .cute-companion.is-celebrating { animation: none; }
 .cute-message-pop { animation: message-pop 500ms cubic-bezier(.16,1.3,.3,1); }

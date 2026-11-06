@@ -438,7 +438,7 @@ async function loginWithPasskey() {
     await saveAuthProfile(authenticatedUser);
     await loadSupabaseData();
     openAppGate(false);
-    showToast('Login berhasil', `Halo ${config.username}, selamat datang kembali! ♡`, 'success');
+    showToast('Login berhasil', `Halo ${config.username}, selamat datang kembali sayanggg! ♡`, 'success');
   } catch (failure) {
     error.textContent = failure.name === 'NotAllowedError'
       ? 'Passkey dibatalkan atau tidak tersedia. Kamu tetap bisa login dengan password.'
@@ -1274,6 +1274,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (cuteButton) {
     setupCuteCompanionDrag();
     cuteButton.addEventListener('click', () => {
+      if (Date.now() < Number(cuteButton.dataset.suppressClickUntil || 0)) return;
       if (cuteButton.dataset.dragged === 'true') {
         cuteButton.dataset.dragged = 'false';
         return;
@@ -1281,12 +1282,35 @@ document.addEventListener('DOMContentLoaded', async () => {
       cuteButton.classList.remove('is-clicked');
       void cuteButton.offsetWidth;
       cuteButton.classList.add('is-clicked');
-      window.setTimeout(() => cuteButton.classList.remove('is-clicked'), 400);
+      cuteButton.classList.add('is-petted');
+      const mouth = cuteButton.querySelector('.cute-companion-mouth');
+      const eyes = cuteButton.querySelectorAll('.cute-companion-eye');
+      if (mouth) mouth.textContent = '•';
+      eyes.forEach(eye => { eye.textContent = '⌣'; });
+      window.setTimeout(() => {
+        cuteButton.classList.remove('is-clicked');
+        cuteButton.classList.remove('is-petted');
+        if (mouth) mouth.textContent = 'ᴗ';
+        eyes.forEach((eye, index) => { eye.textContent = '•'; });
+      }, 900);
       setCuteMessage(['semangat terus ya sayangg! ♡', 'ayo sayangg catat pengeluaranmu! ✨', 'hebat bgttt sayangkuu! 🌷', 'yippieee! 🎀'][Math.floor(Math.random() * 4)]);
     });
     cuteButton.addEventListener('dblclick', event => {
       event.preventDefault();
+      if (Date.now() < Number(cuteButton.dataset.suppressClickUntil || 0)) return;
       if (cuteButton.dataset.dragged === 'true') return;
+      const leftPaw = cuteButton.querySelector('.cute-companion-paw-left');
+      const rightPaw = cuteButton.querySelector('.cute-companion-paw-right');
+      cuteButton.classList.remove('is-love');
+      void cuteButton.offsetWidth;
+      cuteButton.classList.add('is-love');
+      leftPaw.textContent = '♥';
+      rightPaw.textContent = '♥';
+      window.setTimeout(() => {
+        cuteButton.classList.remove('is-love');
+        leftPaw.textContent = '｡';
+        rightPaw.textContent = '｡';
+      }, 1100);
       celebrateCute(cuteButton, ['♡', '🌸', '🌷', '🌼', '🌺', '💮'], 16, false);
       setCuteMessage('dua kali dipencet, bunga-bunganya buat kamu 🌸♡');
     });
@@ -2564,6 +2588,8 @@ function setupCuteCompanionDrag() {
     companion.style.bottom = 'auto';
   };
 
+  clampPosition();
+
   try {
     const saved = JSON.parse(localStorage.getItem('cute_companion_position') || 'null');
     if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
@@ -2586,7 +2612,11 @@ function setupCuteCompanionDrag() {
     startX = event.clientX;
     startY = event.clientY;
     companion.classList.add('is-dragging');
-    handle.setPointerCapture(event.pointerId);
+    try {
+      handle.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture tidak wajib untuk aksi klik biasa.
+    }
     event.preventDefault();
   });
 
@@ -2607,14 +2637,17 @@ function setupCuteCompanionDrag() {
     if (!dragging) return;
     dragging = false;
     companion.classList.remove('is-dragging');
-    if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+    if (typeof handle.hasPointerCapture === 'function' && handle.hasPointerCapture(event.pointerId)) {
+      handle.releasePointerCapture(event.pointerId);
+    }
     if (moved) {
       handle.dataset.dragged = 'true';
+      handle.dataset.suppressClickUntil = String(Date.now() + 700);
       localStorage.setItem('cute_companion_position', JSON.stringify({
         x: companion.offsetLeft,
         y: companion.offsetTop,
       }));
-      window.setTimeout(() => { handle.dataset.dragged = 'false'; }, 350);
+      window.setTimeout(() => { handle.dataset.dragged = 'false'; }, 700);
     }
   };
 
