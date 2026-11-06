@@ -1277,7 +1277,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('receipt-save').addEventListener('click', saveReceiptToSupabase);
   const cuteButton = document.getElementById('cute-companion-button');
   if (cuteButton) {
+    setupCuteCompanionDrag();
     cuteButton.addEventListener('click', () => {
+      if (cuteButton.dataset.dragged === 'true') {
+        cuteButton.dataset.dragged = 'false';
+        return;
+      }
       celebrateCute(cuteButton, ['♡', '✨', '🌸', '🎀', '💖', '🌷'], 18);
       setCuteMessage(['Wah, semangat terus ya! ♡', 'Ayo catat pengeluaranmu! ✨', 'Kamu hebat banget! 🌷', 'Horeee! 🎀'][Math.floor(Math.random() * 4)]);
     });
@@ -2526,6 +2531,90 @@ function celebrateCute(origin, symbols = ['♡', '✨', '🌸'], count = 18) {
     document.body.appendChild(particle);
     particle.addEventListener('animationend', () => particle.remove(), { once: true });
   }
+}
+
+function setupCuteCompanionDrag() {
+  const companion = document.getElementById('cute-companion');
+  const handle = document.getElementById('cute-companion-button');
+  if (!companion || !handle || companion.dataset.draggableReady === 'true') return;
+  companion.dataset.draggableReady = 'true';
+
+  let dragging = false;
+  let moved = false;
+  let offsetX = 0;
+  let offsetY = 0;
+  let startX = 0;
+  let startY = 0;
+
+  const clampPosition = () => {
+    const rect = companion.getBoundingClientRect();
+    const maxX = Math.max(0, window.innerWidth - rect.width);
+    const maxY = Math.max(0, window.innerHeight - rect.height);
+    const left = Math.min(Math.max(0, rect.left), maxX);
+    const top = Math.min(Math.max(0, rect.top), maxY);
+    companion.style.left = `${left}px`;
+    companion.style.top = `${top}px`;
+    companion.style.right = 'auto';
+    companion.style.bottom = 'auto';
+  };
+
+  try {
+    const saved = JSON.parse(localStorage.getItem('cute_companion_position') || 'null');
+    if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+      companion.style.left = `${saved.x}px`;
+      companion.style.top = `${saved.y}px`;
+      companion.style.right = 'auto';
+      companion.style.bottom = 'auto';
+      clampPosition();
+    }
+  } catch {
+    // Position lama diabaikan jika format penyimpanannya rusak.
+  }
+
+  handle.addEventListener('pointerdown', event => {
+    const rect = companion.getBoundingClientRect();
+    dragging = true;
+    moved = false;
+    offsetX = event.clientX - rect.left;
+    offsetY = event.clientY - rect.top;
+    startX = event.clientX;
+    startY = event.clientY;
+    companion.classList.add('is-dragging');
+    handle.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+
+  handle.addEventListener('pointermove', event => {
+    if (!dragging) return;
+    const nextLeft = event.clientX - offsetX;
+    const nextTop = event.clientY - offsetY;
+    const maxX = Math.max(0, window.innerWidth - companion.offsetWidth);
+    const maxY = Math.max(0, window.innerHeight - companion.offsetHeight);
+    companion.style.left = `${Math.min(Math.max(0, nextLeft), maxX)}px`;
+    companion.style.top = `${Math.min(Math.max(0, nextTop), maxY)}px`;
+    companion.style.right = 'auto';
+    companion.style.bottom = 'auto';
+    if (Math.abs(event.clientX - startX) > 3 || Math.abs(event.clientY - startY) > 3) moved = true;
+  });
+
+  const finishDrag = event => {
+    if (!dragging) return;
+    dragging = false;
+    companion.classList.remove('is-dragging');
+    if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+    if (moved) {
+      handle.dataset.dragged = 'true';
+      localStorage.setItem('cute_companion_position', JSON.stringify({
+        x: companion.offsetLeft,
+        y: companion.offsetTop,
+      }));
+      window.setTimeout(() => { handle.dataset.dragged = 'false'; }, 120);
+    }
+  };
+
+  handle.addEventListener('pointerup', finishDrag);
+  handle.addEventListener('pointercancel', finishDrag);
+  window.addEventListener('resize', clampPosition);
 }
 
 /** Escape HTML untuk mencegah XSS */
