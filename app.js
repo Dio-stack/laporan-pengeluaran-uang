@@ -1283,7 +1283,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         cuteButton.dataset.dragged = 'false';
         return;
       }
-      celebrateCute(cuteButton, ['♡', '✨', '🌸', '🎀', '💖', '🌷'], 18);
+      cuteButton.classList.remove('is-clicked');
+      void cuteButton.offsetWidth;
+      cuteButton.classList.add('is-clicked');
+      window.setTimeout(() => cuteButton.classList.remove('is-clicked'), 400);
+      celebrateCute(cuteButton, ['♡', '🌸', '🌷', '✨'], 12, false);
       setCuteMessage(['semangat terus ya sayangg! ♡', 'ayo sayangg catat pengeluaranmu! ✨', 'hebat bgttt sayangkuu! 🌷', 'yippieee! 🎀'][Math.floor(Math.random() * 4)]);
     });
   }
@@ -2507,16 +2511,18 @@ function setCuteMessage(message) {
   bubble.classList.add('cute-message-pop');
 }
 
-function celebrateCute(origin, symbols = ['♡', '✨', '🌸'], count = 18) {
+function celebrateCute(origin, symbols = ['♡', '✨', '🌸'], count = 18, showFlash = true) {
   if (!origin) return;
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const rect = origin.getBoundingClientRect();
   const centerX = rect.left + rect.width / 2;
   const centerY = rect.top + Math.min(rect.height / 2, 80);
-  const flash = document.createElement('div');
-  flash.className = 'cute-screen-flash';
-  document.body.appendChild(flash);
-  flash.addEventListener('animationend', () => flash.remove(), { once: true });
+  if (showFlash) {
+    const flash = document.createElement('div');
+    flash.className = 'cute-screen-flash';
+    document.body.appendChild(flash);
+    flash.addEventListener('animationend', () => flash.remove(), { once: true });
+  }
 
   for (let i = 0; i < count; i++) {
     const particle = document.createElement('span');
