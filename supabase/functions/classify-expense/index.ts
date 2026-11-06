@@ -36,23 +36,28 @@ Deno.serve(async (request: Request): Promise<Response> => {
     // A. Coba Google Gemini API Resmi terlebih dahulu jika kuncinya ada
     if (geminiKey) {
       const configuredModel = Deno.env.get('GEMINI_MODEL');
+      const argonModel = Deno.env.get('GEMINI_ARGON_MODEL') || Deno.env.get('ARGON_MODEL');
       const candidateModels = Array.from(new Set([
+        argonModel,
         configuredModel,
+        'gemini-2.5-flash-lite',
         'gemini-3.8-flash',
         'gemini-2.5-flash',
-        'gemini-1.5-flash',
-        'gemini-2.5-pro',
-        'gemini-1.5-pro'
+        'gemini-1.5-flash'
       ].filter(Boolean))) as string[];
+      const fastCandidateModels = candidateModels.slice(0, 3);
 
       const promptText = 'Baca foto struk secara langsung. Ekstrak tanggal format YYYY-MM-DD, nama toko/transaksi, nominal total angka tanpa Rp, kategori salah satu: makanan, transport, hiburan, belanja, kesehatan, skincare, lainnya, dan seluruh teks penting yang terbaca pada struk. Produk skincare atau makeup = skincare. Toko seperti Indomaret, Alfamart, supermarket, minimarket = belanja. Jawab JSON hanya dengan keys date, name, amount, category, rawText.';
 
       let lastGeminiError = '';
-      for (const modelName of candidateModels) {
+      for (const modelName of fastCandidateModels) {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
         try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 12_000);
           const geminiRes = await fetch(geminiUrl, {
             method: 'POST',
+            signal: controller.signal,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               systemInstruction: {
@@ -77,6 +82,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
               },
             }),
           });
+          clearTimeout(timeoutId);
 
           if (geminiRes.ok) {
             const geminiData = await geminiRes.json();
@@ -108,8 +114,11 @@ Deno.serve(async (request: Request): Promise<Response> => {
       const apiUrl = Deno.env.get('APINEX_API_URL') || 'https://api.apinex.bond/v1/chat/completions';
       const model = Deno.env.get('APINEX_MODEL') || 'free/gemini-3.8-flash';
       usedModel = model;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20_000);
       const response = await fetch(apiUrl, {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Authorization': 'Bearer ' + apinexKey,
           'Accept': 'application/json',
@@ -134,6 +143,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
           ],
         }),
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const providerBody = await response.text();

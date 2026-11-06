@@ -1088,7 +1088,7 @@ async function prepareReceiptImage(file) {
     });
   }
 
-  const maxSide = 2200;
+  const maxSide = 1600;
   const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(image.width * scale);
@@ -1098,7 +1098,7 @@ async function prepareReceiptImage(file) {
   context.fillRect(0, 0, canvas.width, canvas.height);
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
   image.close?.();
-  return await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+  return await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.78));
 }
 
 async function scanReceiptDemo() {
@@ -1186,16 +1186,23 @@ async function saveReceiptToSupabase() {
     const expense = getReceiptExpenseData();
     const button = document.getElementById('receipt-save');
     button.disabled = true;
-    const { error } = await supabaseClient.from('expenses').insert({
+    const { data: insertedRows, error } = await supabaseClient.from('expenses').insert({
       owner_key: currentOwner,
       owner_id: currentOwner,
       expense_date: expense.date,
       name: expense.name,
       category: expense.category,
       amount: expense.amount,
-    });
+    }).select('id, expense_date, name, category, amount');
     if (error) throw error;
-    await loadSupabaseData();
+    const inserted = insertedRows?.[0];
+    if (inserted) {
+      const normalizedId = Number(inserted.id);
+      entries = entries.filter(entry => entry.id !== normalizedId);
+      entries.unshift(mapExpense(inserted));
+      renderAll();
+    }
+    await loadSupabaseData(true);
     showToast('Transaksi tersimpan', 'Struk berhasil disimpan ke Supabase.', 'success');
     document.getElementById('receipt-results').hidden = true;
   } catch (error) {
@@ -1362,8 +1369,20 @@ function mapExpense(row) {
   };
 }
 
-async function loadSupabaseData() {
-  if (isLoadingData || !initSupabase()) return;
+async function loadSupabaseData(force = false) {
+  if (isLoadingData || !initSupabase()) {
+    if (isLoadingData && force) {
+      await new Promise(resolve => {
+        const waitForLoad = () => {
+          if (!isLoadingData) resolve();
+          else setTimeout(waitForLoad, 50);
+        };
+        waitForLoad();
+      });
+      return loadSupabaseData();
+    }
+    return;
+  }
 
   const { data: userData, error: userError } = await supabaseClient.auth.getUser();
   if (userError || !userData.user) {
