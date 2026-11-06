@@ -1284,7 +1284,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
       celebrateCute(cuteButton, ['♡', '✨', '🌸', '🎀', '💖', '🌷'], 18);
-      setCuteMessage(['Wah, semangat terus ya! ♡', 'Ayo catat pengeluaranmu! ✨', 'Kamu hebat banget! 🌷', 'Horeee! 🎀'][Math.floor(Math.random() * 4)]);
+      setCuteMessage(['semangat terus ya sayangg! ♡', 'ayo sayangg catat pengeluaranmu! ✨', 'hebat bgttt sayangkuu! 🌷', 'yippieee! 🎀'][Math.floor(Math.random() * 4)]);
     });
   }
   document.querySelectorAll('.password-toggle').forEach(button => {
@@ -1778,7 +1778,7 @@ async function saveEntry(e) {
   burstCute(document.getElementById('btn-save'), ['♡', '✨', '🌷'], 12);
   animateCuteElement(document.querySelector('.expense-table tbody'), 'cute-table-pop');
   celebrateCute(document.getElementById('btn-save'), ['💖', '✨', '🌷', '🎀', '🌸'], 26);
-  setCuteMessage('Horee! Pengeluaran baru sudah masuk tabel! 💖');
+  setCuteMessage('yipppiee! ada transaksiii<3 ><! 💖');
   const companion = document.getElementById('cute-companion');
   companion.classList.add('is-celebrating');
   window.setTimeout(() => companion.classList.remove('is-celebrating'), 1800);
