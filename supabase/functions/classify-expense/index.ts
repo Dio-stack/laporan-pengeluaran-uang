@@ -43,7 +43,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
         'gemini-2.5-flash-lite',
         'gemini-3.8-flash',
         'gemini-2.5-flash',
-        'gemini-1.5-flash'
+        'gemini-1.5-flash',
+        'gemini-4-argon'
       ].filter(Boolean))) as string[];
       const fastCandidateModels = candidateModels.slice(0, 3);
 
