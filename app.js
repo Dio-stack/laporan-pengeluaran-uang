@@ -132,6 +132,12 @@ function openAppGate(loadData = true) {
   document.body.classList.remove('gate-active');
   document.getElementById('access-gate').classList.add('is-hidden');
   document.getElementById('gate-logout').hidden = false;
+  document.body.appendChild(document.getElementById('cute-companion'));
+  window.setTimeout(() => {
+    const companion = document.getElementById('cute-companion');
+    setCuteMessage('Selamat datang kembali! 💖');
+    celebrateCute(companion, ['♡', '🌷', '✨', '🎀', '🌸'], 24);
+  }, 350);
   if (loadData) loadSupabaseData();
 }
 
@@ -1185,6 +1191,12 @@ function fillExpenseFromReceipt() {
     document.getElementById('inp-amount').value = expense.amount;
     resetReceiptScanner(false);
     closeReceiptDemo();
+    animateCuteElement(document.getElementById('expense-form'), 'cute-transfer');
+    burstCute(document.getElementById('receipt-fill-form'), ['♡', '✿', '🌸'], 8);
+    celebrateCute(document.getElementById('expense-form'), ['♡', '🌸', '✨', '🎀'], 16);
+    setCuteMessage('Berhasil dipindahkan! Sekarang form sudah terisi ♡');
+    document.getElementById('cute-companion').classList.add('is-celebrating');
+    window.setTimeout(() => document.getElementById('cute-companion').classList.remove('is-celebrating'), 1800);
     document.getElementById('expense-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
     showToast('Form terisi', 'Periksa hasilnya, lalu tekan Simpan Pengeluaran.', 'success');
   } catch (error) {
@@ -1237,6 +1249,7 @@ let catChartInstance  = null;
 document.addEventListener('DOMContentLoaded', async () => {
   const accessConfig = getAccessConfig();
   document.body.classList.add('gate-active');
+  document.getElementById('access-gate').appendChild(document.getElementById('cute-companion'));
   setGateMode(false);
   updateAuthCooldownButton();
   document.getElementById('gate-form').addEventListener('submit', handleGateSubmit);
@@ -1262,6 +1275,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('receipt-cancel-result').addEventListener('click', resetReceiptScanner);
   document.getElementById('receipt-fill-form').addEventListener('click', fillExpenseFromReceipt);
   document.getElementById('receipt-save').addEventListener('click', saveReceiptToSupabase);
+  const cuteButton = document.getElementById('cute-companion-button');
+  if (cuteButton) {
+    cuteButton.addEventListener('click', () => {
+      celebrateCute(cuteButton, ['♡', '✨', '🌸', '🎀', '💖', '🌷'], 18);
+      setCuteMessage(['Wah, semangat terus ya! ♡', 'Ayo catat pengeluaranmu! ✨', 'Kamu hebat banget! 🌷', 'Horeee! 🎀'][Math.floor(Math.random() * 4)]);
+    });
+  }
   document.querySelectorAll('.password-toggle').forEach(button => {
     button.addEventListener('click', () => togglePasswordVisibility(button));
   });
@@ -1750,6 +1770,13 @@ async function saveEntry(e) {
   document.getElementById('btn-cancel-edit').style.display = 'none';
   document.getElementById('btn-save').innerHTML = '<span class="btn-icon-inner">+</span> Simpan Pengeluaran';
   showToast(wasEditing ? 'Data diperbarui' : 'Tersimpan', `"${name}" berhasil ${wasEditing ? 'diperbarui' : 'ditambahkan'}.`, 'success');
+  burstCute(document.getElementById('btn-save'), ['♡', '✨', '🌷'], 12);
+  animateCuteElement(document.querySelector('.expense-table tbody'), 'cute-table-pop');
+  celebrateCute(document.getElementById('btn-save'), ['💖', '✨', '🌷', '🎀', '🌸'], 26);
+  setCuteMessage('Horee! Pengeluaran baru sudah masuk tabel! 💖');
+  const companion = document.getElementById('cute-companion');
+  companion.classList.add('is-celebrating');
+  window.setTimeout(() => companion.classList.remove('is-celebrating'), 1800);
 
   // Reset form
   resetForm();
@@ -2435,6 +2462,70 @@ function closeToast() {
 function formatDate(dateStr) {
   const [y, m, d] = dateStr.split('-');
   return `${d}/${m}/${y}`;
+}
+
+function animateCuteElement(element, className) {
+  if (!element) return;
+  element.classList.remove(className);
+  void element.offsetWidth;
+  element.classList.add(className);
+  window.setTimeout(() => element.classList.remove(className), 900);
+}
+
+function burstCute(origin, symbols = ['♡', '✨', '🌸'], count = 8) {
+  if (!origin || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const rect = origin.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+
+  for (let i = 0; i < count; i++) {
+    const particle = document.createElement('span');
+    particle.className = 'cute-burst-particle';
+    particle.textContent = symbols[i % symbols.length];
+    const angle = (Math.PI * 2 * i) / count;
+    const distance = 38 + Math.random() * 34;
+    particle.style.setProperty('--cute-x', `${Math.cos(angle) * distance}px`);
+    particle.style.setProperty('--cute-y', `${Math.sin(angle) * distance - 18}px`);
+    particle.style.left = `${centerX}px`;
+    particle.style.top = `${centerY}px`;
+    document.body.appendChild(particle);
+    particle.addEventListener('animationend', () => particle.remove(), { once: true });
+  }
+}
+
+function setCuteMessage(message) {
+  const bubble = document.getElementById('cute-companion-speech');
+  if (!bubble) return;
+  bubble.textContent = message;
+  bubble.classList.remove('cute-message-pop');
+  void bubble.offsetWidth;
+  bubble.classList.add('cute-message-pop');
+}
+
+function celebrateCute(origin, symbols = ['♡', '✨', '🌸'], count = 18) {
+  if (!origin) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const rect = origin.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + Math.min(rect.height / 2, 80);
+  const flash = document.createElement('div');
+  flash.className = 'cute-screen-flash';
+  document.body.appendChild(flash);
+  flash.addEventListener('animationend', () => flash.remove(), { once: true });
+
+  for (let i = 0; i < count; i++) {
+    const particle = document.createElement('span');
+    particle.className = 'cute-big-burst';
+    particle.textContent = symbols[i % symbols.length];
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.25;
+    const distance = 95 + Math.random() * 190;
+    particle.style.setProperty('--big-x', `${Math.cos(angle) * distance}px`);
+    particle.style.setProperty('--big-y', `${Math.sin(angle) * distance - 85}px`);
+    particle.style.left = `${centerX}px`;
+    particle.style.top = `${centerY}px`;
+    document.body.appendChild(particle);
+    particle.addEventListener('animationend', () => particle.remove(), { once: true });
+  }
 }
 
 /** Escape HTML untuk mencegah XSS */
